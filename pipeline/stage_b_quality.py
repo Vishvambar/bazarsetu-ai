@@ -72,6 +72,7 @@ class QualityGateStage:
         
         product_area_ratio = 0.5
         touching_edges_count = 0
+        min_margin = min(w, h)
         
         if contours:
             largest = max(contours, key=cv2.contourArea)
@@ -85,6 +86,7 @@ class QualityGateStage:
             if by <= 3: touching_edges_count += 1
             if (w - (bx + bw)) <= 3: touching_edges_count += 1
             if (h - (by + bh)) <= 3: touching_edges_count += 1
+            min_margin = min(bx, by, max(0, w - (bx + bw)), max(0, h - (by + bh)))
 
         # Gate Evaluation logic in priority order
         if laplacian_var < self.cfg.min_laplacian_variance:
