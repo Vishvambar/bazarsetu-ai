@@ -144,6 +144,7 @@ class BiRefNetSegmenter:
         h, w = image_bgr.shape[:2]
         image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
         start_time = time.perf_counter()
+        gpu_inference_time_ms = 0.0
 
         if self.model is not None and DEVICE_MGR.has_cuda:
             # 1. Aspect-Ratio Safe Letterbox Pad
@@ -159,12 +160,20 @@ class BiRefNetSegmenter:
             std = torch.tensor([0.229, 0.224, 0.225], device=self.device, dtype=torch.float16).view(1, 3, 1, 1)
             tensor_in = (tensor_in - mean) / std
 
-            # 3. Model Forward Pass
+            # 3. Dedicated GPU Forward Pass Timing via CUDA Events
+            start_event = torch.cuda.Event(enable_timing=True)
+            end_event = torch.cuda.Event(enable_timing=True)
+
+            start_event.record()
             with torch.inference_mode():
                 with torch.amp.autocast("cuda", dtype=torch.float16):
                     outputs = self.model(tensor_in)
                     pred = outputs[-1].sigmoid() if isinstance(outputs, (list, tuple)) else outputs.sigmoid()
-                    pred_np = pred.squeeze().cpu().numpy()
+            end_event.record()
+            torch.cuda.synchronize(self.device)
+            gpu_inference_time_ms = float(start_event.elapsed_time(end_event))
+
+            pred_np = pred.squeeze().cpu().numpy()
 
             # 4. Unpad back to original dimensions
             raw_mask = (pred_np * 255.0).astype(np.uint8)
@@ -196,8 +205,7 @@ class BiRefNetSegmenter:
             rect = (x, y, bw, bh)
             cv2.grabCut(image_bgr, mask_gc, rect, bgdModel, fgdModel, 3, cv2.GC_INIT_WITH_RECT)
             alpha_mask = np.where((mask_gc == 2) | (mask_gc == 0), 0, 255).astype('uint8')
-
-        inference_time_ms = (time.perf_counter() - start_time) * 1000.0
+            gpu_inference_time_ms = (time.perf_counter() - start_time) * 1000.0
 
         # Compute Bounding Box from Alpha Mask
         fg_points = cv2.findNonZero(alpha_mask)
@@ -214,7 +222,7 @@ class BiRefNetSegmenter:
             mask=alpha_mask,
             cutout=cutout_bgra,
             bounding_box=(bx, by, bw, bh),
-            inference_time_ms=inference_time_ms,
+            inference_time_ms=gpu_inference_time_ms,
             model_name=self.model_name,
             model_version=self.model_version
         )
