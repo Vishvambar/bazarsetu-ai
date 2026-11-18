@@ -1,0 +1,1303 @@
+BazarSetu
+AI/ML Systems Blueprint v1.0
+Document type: Product, AI/ML and Technical Architecture Specification
+Project: BazarSetu
+Architecture: Hybrid AI Architecture
+Status: Planning and specification
+Scope: Marketplace product images and product intelligence
+Primary objective: Build a reliable AI-powered system that transforms ordinary seller product photographs and voice descriptions into accurate, professional, marketplace-ready product listings.
+
+1. Project Vision and Scope
+BazarSetu aims to simplify digital commerce for Indian artisans, small manufacturers, local businesses and retailers.
+Many sellers do not have professional photography equipment, product photography knowledge, English writing skills or experience creating structured e-commerce catalogues.
+BazarSetu will address these problems through an integrated AI/ML platform.
+A seller should be able to:
+Capture photographs of a product using a smartphone.
+Record a description in their preferred language.
+Receive professionally enhanced marketplace images.
+Automatically identify product details.
+Generate a structured product catalogue.
+Receive pricing assistance.
+Review and approve the generated information.
+Publish an accurate product listing.
+Architecture philosophy
+BazarSetu will own its AI orchestration, data, processing pipelines, product-specific intelligence, validation and evaluation systems.
+It will combine:
+Open-source pretrained models.
+External AI APIs.
+Custom machine-learning models where justified.
+Deterministic image-processing algorithms.
+BazarSetu-specific business rules and intelligence.
+The system must remain independent of any single AI provider.
+Scope boundaries
+Included:
+Product image quality assessment.
+Product detection and segmentation.
+Marketplace image enhancement.
+Product visual understanding.
+Voice intelligence.
+Multimodal intelligence.
+Product catalogue intelligence.
+Pricing intelligence.
+Product verification.
+Model management, evaluation and infrastructure.
+Excluded from this version:
+Marketing images.
+Promotional posters.
+Advertisement creatives.
+Lifestyle product photography.
+Social media image generation.
+AI-generated product redesign.
+The focus is exclusively on trustworthy marketplace product images and product intelligence.
+
+2. Overall System Architecture
+The platform will contain nine interconnected systems.
+No.
+System
+Primary responsibility
+1
+Product Image Intelligence
+Transform ordinary product photographs into professional marketplace images
+2
+Computer Vision and Product Understanding
+Understand what is visually present in product photographs
+3
+Voice Intelligence
+Understand seller descriptions in regional languages
+4
+Multimodal Intelligence
+Combine visual and voice information into one verified understanding
+5
+Product Catalogue Intelligence
+Generate complete, structured marketplace listings
+6
+Pricing Intelligence
+Help sellers calculate sustainable and competitive prices
+7
+Product Verification and Integrity
+Prevent inaccurate, misleading or inconsistent listings
+8
+AI Orchestration and Model Management
+Coordinate models, APIs, processing and fallbacks
+9
+Data, Evaluation and Infrastructure
+Provide the datasets, storage, benchmarks and infrastructure supporting every system
+
+These are logical systems. They do not necessarily need to become nine independently deployed microservices.
+
+SYSTEM 01: PRODUCT IMAGE INTELLIGENCE
+1.1 Why do we need to build this system?
+Most small sellers and artisans capture product photographs using ordinary smartphones.
+Their photographs may contain:
+Cluttered backgrounds.
+Poor lighting.
+Unwanted shadows.
+Improper framing.
+Blurry details.
+Inconsistent product positioning.
+Low-quality backgrounds.
+Different lighting conditions across photographs.
+Professional product photography can be expensive and difficult to access.
+If BazarSetu expects sellers to prepare professional product photographs themselves, it creates another barrier to onboarding.
+We therefore need a Product Image Intelligence System that automatically processes ordinary photographs and prepares them for marketplace use.
+Primary purpose: Make professional-quality product photography accessible to sellers without requiring photography equipment, editing knowledge or manual image-processing skills.
+1.2 What should this system accomplish?
+The system must:
+Accept ordinary smartphone photographs.
+Evaluate their quality.
+Detect the product.
+Separate the product from its background.
+Preserve its original appearance.
+Improve lighting and composition.
+Create clean marketplace-ready images.
+Verify the final output.
+Return the image for seller approval.
+1.3 Input
+The system should accept:
+JPEG images.
+PNG images.
+WebP images.
+Multiple photographs of one product.
+Different product angles.
+Images captured under different lighting conditions.
+Initial capture guidance should support approximately 2–5 photographs per product, with suitable views such as front, side, back, top and detail.
+1.4 Processing pipeline
+Stage A: Image ingestion
+Responsibilities:
+Validate image format.
+Check file size.
+Check image dimensions.
+Preserve original image.
+Generate a unique asset identifier.
+Create an asynchronous processing job.
+Stage B: Image quality assessment
+Evaluate:
+Parameter
+Purpose
+Sharpness
+Detect blurry photographs
+Exposure
+Detect underexposed or overexposed images
+Resolution
+Ensure sufficient output quality
+Composition
+Check product placement and framing
+Visibility
+Determine whether the product is understandable
+Occlusion
+Detect objects covering the product
+Noise
+Detect excessive image noise
+Glare
+Identify difficult reflections
+Product size
+Determine whether the product is too small in the frame
+
+The system should provide simple seller instructions.
+Examples:
+"Please move the camera closer."
+"The photograph is too dark."
+"Please capture the complete product."
+"Avoid covering the product."
+Internal numerical scores should not overwhelm sellers.
+Stage C: Product detection
+Locate the product in the photograph.
+Expected output:
+Bounding box.
+Detection confidence.
+Product region.
+Multiple-object indication.
+Stage D: Segmentation and matting
+Separate the actual product from the background.
+Candidate technologies:
+BiRefNet.
+BiRefNet Lite.
+BiRefNet HR.
+BiRefNet HR-Matting.
+SAM 2 for interactive correction or fallback.
+The model must be benchmarked using difficult artisan products, especially jewellery, threads, embroidery, transparent objects and complex edges.
+Stage E: Product cutout and Product Master
+Create:
+Product mask.
+Transparent product cutout.
+Original image reference.
+Product boundaries.
+Processing metadata.
+The original photograph must never be overwritten.
+Stage F: Image enhancement
+Apply controlled image processing:
+Exposure correction.
+White balance correction.
+Contrast adjustment.
+Noise reduction.
+Careful sharpening.
+Cropping.
+Product alignment.
+Consistent image margins.
+Background placement.
+Natural contact shadow.
+Initial marketplace presentation should use a clean white or neutral background.
+Stage G: Final image generation
+Create marketplace-ready versions with consistent dimensions, composition and file formats.
+Possible outputs:
+High-resolution master.
+Marketplace display image.
+Thumbnail image.
+Compressed delivery image.
+Stage H: Final quality verification
+Evaluate:
+Product visibility.
+Product colour preservation.
+Product shape preservation.
+Boundary quality.
+Texture preservation.
+Background cleanliness.
+Sharpness.
+Composition.
+Reject outputs that materially change the product.
+1.5 Candidate technology stack
+Responsibility
+Candidates
+Image processing
+OpenCV, Pillow
+Segmentation
+BiRefNet
+Interactive correction
+SAM 2
+Matting
+BiRefNet HR-Matting
+Enhancement
+OpenCV and controlled algorithms
+Image storage
+S3-compatible object storage
+ML framework
+PyTorch
+
+These are candidates, not final production selections.
+1.6 Output
+A structured image-processing result:
+Original image reference.
+Product mask.
+Transparent cutout.
+Enhanced marketplace image.
+Quality score.
+Fidelity score.
+Processing metadata.
+Model version.
+Processing status.
+1.7 Evaluation metrics
+Segmentation IoU.
+Dice score.
+Boundary F1.
+Thin-edge preservation.
+Colour fidelity.
+Sharpness.
+Exposure quality.
+Image composition.
+Seller approval rate.
+Processing time.
+Cost per image.
+1.8 Expected outcome
+A seller should be able to capture an ordinary product photograph and receive a clean, professional and accurate marketplace image without manually editing it.
+
+SYSTEM 02: COMPUTER VISION AND PRODUCT UNDERSTANDING
+2.1 Why do we need to build this system?
+An image-processing system can make a photograph look better, but it does not necessarily understand what the photograph contains.
+BazarSetu needs to understand the actual product so that it can create meaningful catalogues, identify categories, extract attributes and verify product information.
+For example, a photograph of a handmade textile product should provide more information than simply "an object detected."
+The system should identify:
+What the product appears to be.
+Which category it belongs to.
+Its visible colour.
+Its material characteristics, where identifiable.
+Its pattern and design.
+Visible text.
+Relevant product components.
+Primary purpose: Convert product photographs into structured visual information that can support catalogue creation, verification and marketplace categorization.
+2.2 Main responsibilities
+A. Product classification
+Identify:
+Product category.
+Subcategory.
+Product type.
+Relevant product family.
+Initial category candidates:
+Jewellery.
+Pottery and terracotta.
+Textiles and handloom.
+Woodcraft.
+Metalcraft.
+Home decor.
+Paintings.
+Bags and accessories.
+Food and spices.
+Candles.
+Toys.
+The system should ultimately be category-driven rather than limited to artisan-specific products.
+B. Material recognition
+Identify visible material characteristics such as:
+Wood.
+Metal.
+Ceramic.
+Clay.
+Cotton.
+Silk.
+Leather-like materials.
+Glass.
+Plastic.
+Material recognition must be treated as a prediction.
+The model should not claim a material with certainty when visual evidence is insufficient.
+For example, a photograph may suggest silk, but actual material composition may require seller confirmation.
+C. Colour recognition
+Extract:
+Primary colour.
+Secondary colours.
+Dominant colour distribution.
+Approximate colour family.
+Visible colour variations.
+Preserve the distinction between actual product colour and lighting-induced colour changes.
+D. Pattern and design recognition
+Identify:
+Geometric patterns.
+Floral patterns.
+Embroidery.
+Printed designs.
+Traditional motifs.
+Textures.
+Decorative structures.
+This will be especially useful for Indian handmade and textile products.
+E. Product component detection
+Identify visible components.
+Examples:
+Handles.
+Lids.
+Clasps.
+Straps.
+Compartments.
+Decorative elements.
+Packaging components.
+F. OCR and visual text extraction
+Read text visible on:
+Product packaging.
+Labels.
+Brand names.
+Product tags.
+Printed specifications.
+MRP and quantity labels where applicable.
+Candidate technology: PaddleOCR or another benchmarked OCR system.
+Extracted information must be verified before being used in a published catalogue.
+G. Multiple-product detection
+Identify:
+Multiple separate products.
+Product sets.
+Packaging and product combinations.
+Unwanted background objects.
+This helps determine whether an image should be accepted, corrected or recaptured.
+2.3 Candidate models
+Task
+Candidate
+Object detection
+YOLO family
+Image classification
+ConvNeXt, EfficientNet
+Vision understanding
+Gemini, Qwen vision models
+OCR
+PaddleOCR
+Segmentation
+BiRefNet, SAM 2
+Visual embeddings
+CLIP-family models
+
+2.4 Output structure
+The system should generate a structured visual understanding record.
+Example:
+{
+  "product_category": {
+    "value": "Home Decor",
+    "confidence": 0.94
+  },
+  "subcategory": {
+    "value": "Decorative Box",
+    "confidence": 0.89
+  },
+  "visible_colours": [
+    "Brown",
+    "Dark Brown"
+  ],
+  "possible_materials": [
+    {
+      "value": "Wood",
+      "confidence": 0.82
+    }
+  ],
+  "visible_features": [
+    "Rectangular shape",
+    "Decorative lid"
+  ],
+  "ocr_text": [],
+  "multiple_products": false
+}
+The values above are illustrative, not actual model measurements.
+2.5 Evaluation
+Category accuracy.
+Subcategory accuracy.
+Precision and recall.
+Attribute extraction accuracy.
+OCR character accuracy.
+Confidence calibration.
+Multiple-object detection accuracy.
+Performance across different product categories.
+2.6 Expected outcome
+BazarSetu should understand what is visually present in a product photograph and generate reliable structured attributes for downstream systems.
+
+SYSTEM 03: VOICE INTELLIGENCE
+3.1 Why do we need to build this system?
+Many artisans and small sellers are more comfortable speaking than typing.
+Requiring sellers to write product titles, descriptions, dimensions, materials and manufacturing details creates friction.
+BazarSetu should allow sellers to explain their products naturally in their preferred language.
+For example:
+"This is a handmade wooden box. It takes two days to make. The wood is locally sourced."
+The system should understand the description and convert it into structured product information.
+Primary purpose: Enable voice-based product cataloguing without requiring sellers to type complex product information or understand English.
+3.2 Supported languages
+Initial priorities:
+Marathi.
+Hindi.
+English.
+Future language expansion:
+Gujarati.
+Bengali.
+Tamil.
+Telugu.
+Kannada.
+Malayalam.
+Other Indian languages.
+Language support must be evaluated independently. We should not assume that performance in Hindi guarantees performance in regional dialects.
+3.3 Main processing stages
+Stage A: Audio ingestion
+Accept:
+Voice recordings.
+Short product descriptions.
+Different audio formats.
+Variable recording quality.
+Store the original recording separately.
+Stage B: Audio preprocessing
+Perform:
+Audio format conversion.
+Noise assessment.
+Volume normalization.
+Speech detection.
+Silence detection.
+Stage C: Speech-to-text
+Convert speech into text.
+Candidate models:
+Whisper.
+Other suitable speech recognition APIs.
+Indic-language speech recognition models.
+Stage D: Language identification
+Determine:
+Spoken language.
+Mixed-language speech.
+Code-switching.
+Regional vocabulary.
+Stage E: Product information extraction
+Extract:
+Product name.
+Material information.
+Product dimensions.
+Weight.
+Colour.
+Manufacturing details.
+Production time.
+Quantity.
+Seller-provided cost.
+Other relevant attributes.
+Stage F: Missing-information detection
+Identify missing fields.
+For example:
+"Product dimensions have not been provided."
+The system should ask the seller only when the missing information is important.
+Stage G: Seller confirmation
+Convert extracted information into a readable and listenable summary.
+Support local-language audio readback.
+The seller should be able to correct incorrect information.
+3.4 Candidate technology
+Task
+Candidate
+Speech recognition
+Whisper
+Audio preprocessing
+FFmpeg
+Language detection
+Language identification models
+Attribute extraction
+Qwen, Gemini or GPT
+Translation
+IndicTrans2 or suitable translation APIs
+Audio generation
+Suitable text-to-speech models
+
+3.5 Output
+Structured seller-provided product information, including:
+Original audio reference.
+Transcription.
+Detected language.
+Extracted attributes.
+Confidence and source.
+Missing information.
+Seller corrections.
+3.6 Evaluation
+Word error rate.
+Language-specific transcription accuracy.
+Product terminology accuracy.
+Attribute extraction precision.
+Noise robustness.
+Code-switching performance.
+Seller correction rate.
+Audio processing latency.
+3.7 Expected outcome
+A seller should be able to describe a product naturally and have BazarSetu understand and structure that information without manual typing.
+
+SYSTEM 04: MULTIMODAL INTELLIGENCE
+4.1 Why do we need to build this system?
+Image intelligence and voice intelligence provide different types of information.
+A photograph may reveal a product's visible colour, shape and packaging, but it may not reveal its weight, production time or manufacturing process.
+A seller's voice may provide the material, product name and dimensions, but may not describe every visible feature accurately.
+Using only one source creates incomplete product information.
+We therefore need a system that combines visual information with seller-provided voice information.
+Primary purpose: Create a more complete and accurate understanding of a product by combining image evidence and seller statements.
+4.2 Core capabilities
+A. Image and voice fusion
+Combine:
+Product classification.
+Visible attributes.
+OCR results.
+Speech transcription.
+Seller-provided product details.
+B. Cross-verification
+Compare image observations against voice statements.
+Example:
+Seller says: "This is a wooden jewellery box."
+Image model detects: A box-like product with visible wooden texture.
+The system can identify consistency between the sources.
+C. Contradiction detection
+Example:
+Seller says: "This is a red product."
+Image analysis identifies a predominantly blue product.
+The system should flag the conflict and request clarification rather than automatically choosing one source.
+D. Source-aware attributes
+Each attribute must retain its source.
+Possible sources:
+Seller voice.
+Visual observation.
+OCR.
+Deterministic calculation.
+External verified data.
+Human confirmation.
+E. Missing-information detection
+Identify information that cannot be established from either input.
+Ask the seller for clarification only when necessary.
+F. Structured product understanding
+Combine the information into a unified product record.
+4.3 Example workflow
+Input:
+Image of a packaged spice product.
+Voice description: "This is Garam Masala, 200 grams."
+Vision system:
+Reads visible brand text.
+Identifies packaging.
+Extracts visible label information.
+Voice system:
+Identifies product name.
+Extracts quantity.
+Multimodal system:
+Combines the sources.
+Identifies contradictions.
+Records confidence and provenance.
+Requests confirmation for uncertain fields.
+4.4 Output
+A unified product understanding object.
+Example:
+{
+  "product_name": {
+    "value": "Garam Masala",
+    "source": "seller_voice"
+  },
+  "quantity": {
+    "value": 200,
+    "unit": "grams",
+    "source": "seller_voice"
+  },
+  "brand": {
+    "value": "Extracted visible brand",
+    "source": "image_ocr",
+    "requires_confirmation": true
+  },
+  "verification_status": "pending_seller_review"
+}
+4.5 Technical approach
+Use:
+Vision models.
+Speech recognition.
+LLM-based structured extraction.
+Source tracking.
+Deterministic comparison rules.
+Confidence calibration.
+The system must not assume that a language model's agreement with itself constitutes independent verification.
+4.6 Evaluation
+Cross-modal attribute accuracy.
+Contradiction detection recall.
+False conflict rate.
+Missing-information detection.
+Source attribution accuracy.
+Seller correction rate.
+Structured output validity.
+4.7 Expected outcome
+BazarSetu should understand a product using both what the seller says and what the photograph shows, while clearly distinguishing facts from predictions.
+
+SYSTEM 05: PRODUCT CATALOGUE INTELLIGENCE
+5.1 Why do we need to build this system?
+After understanding a product, BazarSetu still needs to convert that information into a proper marketplace listing.
+Most marketplaces require structured information such as:
+Product title.
+Description.
+Category.
+Subcategory.
+Material.
+Dimensions.
+Colour.
+Weight.
+Quantity.
+Product variants.
+Selling price.
+Required regulatory information.
+Manually filling these fields is time-consuming and creates barriers for small sellers.
+Primary purpose: Convert verified product information into complete, consistent and marketplace-compatible product catalogues with minimal manual effort.
+5.2 Responsibilities
+A. Product title generation
+Generate:
+Clear product titles.
+Search-friendly titles.
+Category-appropriate wording.
+Multilingual titles where needed.
+Avoid unsupported claims and keyword stuffing.
+B. Product description generation
+Generate descriptions using:
+Seller statements.
+Verified visual attributes.
+Product category.
+Confirmed materials.
+Manufacturing details.
+Intended use, when supported.
+Do not invent certifications, origins, material composition or product benefits.
+C. Attribute normalization
+Convert unstructured information into standard fields.
+Examples:
+"Half kilo" → 500 grams.
+"Two feet" → standardized length representation.
+Colour variations → controlled vocabulary.
+Retain original seller statements when normalization could introduce ambiguity.
+D. Product variant identification
+Identify possible variants such as:
+Size.
+Colour.
+Weight.
+Quantity.
+Design.
+Do not automatically create variants when the evidence is insufficient.
+E. Category mapping
+Map products to:
+BazarSetu internal categories.
+Relevant ONDC categories.
+Required category-specific attributes.
+ONDC taxonomy must be versioned and validated against the applicable specification.
+F. Multilingual catalogue generation
+Generate appropriate catalogue content in supported languages.
+Preserve product names and culturally specific craft terminology where necessary.
+G. Catalogue completeness checks
+Identify:
+Missing mandatory fields.
+Incorrect units.
+Inconsistent attributes.
+Invalid category assignments.
+Unsupported claims.
+Missing product specifications.
+H. Legal and regulatory field verification
+For applicable packaged products, OCR and voice extraction may assist with fields such as MRP, net quantity, manufacturer information and dates.
+These fields require seller verification and applicable compliance checks before publication.
+5.3 Candidate technologies
+LLM APIs.
+Open-weight language models.
+Structured output generation.
+JSON Schema.
+ONDC taxonomy and catalogue specifications.
+Translation models.
+OCR output from System 02.
+5.4 Output
+A structured marketplace catalogue containing:
+Product title.
+Description.
+Category.
+Subcategory.
+Attributes.
+Variants.
+Image references.
+Language versions.
+Required field status.
+Validation results.
+Seller approval status.
+5.5 Evaluation
+Title relevance.
+Description factuality.
+Attribute extraction accuracy.
+Category mapping accuracy.
+Mandatory field completeness.
+Schema validation success.
+Translation quality.
+Seller correction rate.
+5.6 Expected outcome
+A seller should receive a structured, accurate and marketplace-compatible product catalogue without manually completing a complicated form.
+
+SYSTEM 06: PRICING INTELLIGENCE
+6.1 Why do we need to build this system?
+Many small producers and artisans struggle to calculate the actual cost of producing their products.
+They may forget to account for:
+Raw materials.
+Labour.
+Production time.
+Packaging.
+Electricity.
+Transportation.
+Other overheads.
+This can cause sellers to underprice products and lose money.
+At the same time, an excessively high suggested price may make products difficult to sell.
+BazarSetu therefore needs a pricing system that helps sellers understand their costs and make informed pricing decisions.
+Primary purpose: Protect seller profitability through transparent cost calculations and useful selling-price recommendations.
+6.2 Main capabilities
+A. Cost collection
+Collect:
+Raw material cost.
+Labour cost.
+Production time.
+Packaging expenses.
+Other overheads.
+Additional selling expenses.
+Use voice input and simple questions to reduce manual effort.
+B. Cost calculation
+A basic cost model:
+Total Production Cost = Material Cost + Labour Cost + Packaging Cost + Overheads
+C. Minimum sustainable price
+Calculate the minimum price required to cover the relevant costs.
+D. Selling-price recommendation
+Suggest a selling-price range using:
+Production cost.
+Seller's desired margin.
+Comparable market prices, when reliable.
+Product characteristics.
+Applicable selling expenses.
+E. Margin calculation
+Allow sellers to understand the difference between:
+Cost.
+Selling price.
+Gross profit.
+Margin percentage.
+F. Bulk pricing
+Support quantity-based price calculations.
+Example:
+1 unit: ₹500.
+10+ units: ₹450.
+50+ units: ₹400.
+The example is illustrative.
+G. Seller-controlled pricing
+The system must provide recommendations, not autonomously decide the final selling price.
+The seller retains final control.
+6.3 Technical approach
+Pricing should primarily be a deterministic calculation engine, not an LLM-generated answer.
+Use:
+Structured cost inputs.
+Configurable calculation rules.
+Market data where available.
+Statistical models where justified.
+Versioned pricing assumptions.
+An ML-based price recommendation model can be considered after sufficient reliable transaction and market data exists.
+6.4 Output
+Estimated production cost.
+Cost breakdown.
+Minimum sustainable price.
+Suggested selling-price range.
+Expected profit.
+Expected margin.
+Bulk price suggestions.
+Calculation assumptions.
+6.5 Evaluation
+Arithmetic correctness.
+Cost estimation error.
+Recommendation usefulness.
+Seller acceptance rate.
+Price correction rate.
+Difference between predicted and realized selling outcomes, when sufficient data exists.
+6.6 Expected outcome
+Sellers should understand their costs and make better pricing decisions without losing control over their own prices.
+
+SYSTEM 07: PRODUCT VERIFICATION AND INTEGRITY
+7.1 Why do we need to build this system?
+AI-generated product images and descriptions can look convincing while containing incorrect information.
+Examples:
+A generated image changes the product's colour.
+A segmentation model removes part of the product.
+A description claims a material that the product does not contain.
+The seller says one quantity while packaging shows another.
+A generated catalogue includes unsupported product specifications.
+Such mistakes can damage buyer trust, increase returns and create marketplace compliance problems.
+BazarSetu needs a dedicated verification system to prevent these problems.
+Primary purpose: Ensure that marketplace images and product information accurately represent the actual product and have been approved by the seller.
+7.2 Main capabilities
+A. Image fidelity verification
+Compare:
+Original photograph.
+Product mask.
+Processed image.
+Final marketplace image.
+Evaluate:
+Shape preservation.
+Colour preservation.
+Texture preservation.
+Missing regions.
+Added regions.
+Product boundary changes.
+B. Attribute verification
+Compare product attributes against their sources.
+Examples:
+Colour from image versus seller description.
+Quantity from voice versus package label.
+Material from seller statement versus visual prediction.
+C. Duplicate product detection
+Identify possible duplicate product photographs and listings.
+Use image embeddings, similarity methods and catalogue metadata.
+D. Product consistency
+Ensure:
+Images belong to the same product.
+Descriptions match the photographs.
+Variants are correctly represented.
+Product information is consistent across listing fields.
+E. Confidence-based review
+Possible outcomes:
+Approved automatically under validated rules.
+Seller confirmation required.
+Manual review required.
+Processing rejected.
+Automatic approval must be restricted to cases where the relevant quality and verification requirements have been demonstrated to work reliably.
+F. Suspicious listing detection
+Flag:
+Potentially misleading product descriptions.
+Inconsistent packaging information.
+Suspicious image alterations.
+Reused images.
+Unsupported claims.
+7.3 Technical approach
+Combine:
+Computer vision.
+Image similarity.
+Per-attribute confidence.
+Deterministic business rules.
+OCR and voice evidence.
+Human review.
+Do not rely on one overall AI confidence score to represent every aspect of product correctness.
+7.4 Output
+A verification record containing:
+Image fidelity result.
+Attribute consistency results.
+Duplicate detection result.
+Confidence information.
+Warnings.
+Required corrections.
+Review status.
+Audit history.
+7.5 Evaluation
+False acceptance rate.
+False rejection rate.
+Product fidelity detection.
+Contradiction detection accuracy.
+Duplicate detection precision and recall.
+Human reviewer agreement.
+Seller correction rate.
+7.6 Expected outcome
+Only accurate, verified and seller-approved product information should reach the marketplace catalogue.
+
+SYSTEM 08: AI ORCHESTRATION AND MODEL MANAGEMENT
+8.1 Why do we need to build this system?
+BazarSetu will use multiple AI models, APIs and processing services.
+For example:
+One model may perform segmentation.
+Another may identify products.
+Another may process voice.
+Another may generate structured descriptions.
+Our own code may calculate pricing.
+If each application module directly integrates with different providers, the architecture becomes difficult to maintain.
+Changing providers would require modifications across the application.
+We need a central system that controls how AI tasks are assigned, processed, monitored and evaluated.
+Primary purpose: Give BazarSetu complete control over its AI workflows while allowing external providers and open-source models to be replaced independently.
+8.2 Main components
+A. Model Router
+Select an appropriate model for each task.
+Example:
+Segmentation → BiRefNet.
+OCR → PaddleOCR.
+Speech recognition → Whisper.
+Complex visual reasoning → selected vision API.
+Description generation → selected LLM.
+B. Provider Abstraction
+Create standard interfaces for:
+OpenAI.
+Gemini.
+Claude.
+Qwen.
+Self-hosted models.
+Future providers.
+Business logic should communicate with BazarSetu interfaces rather than vendor-specific SDKs.
+C. Model Registry
+Maintain:
+Model ID.
+Provider.
+Version.
+Task.
+Deployment type.
+Evaluation results.
+Latency.
+Cost.
+Production status.
+D. Fallback and Retry
+If a provider fails:
+Retry according to configured policy.
+Select an approved alternative where appropriate.
+Preserve job state.
+Record failure information.
+Avoid duplicate processing.
+E. Asynchronous Processing
+Long-running image and multimodal operations should use background jobs.
+Example lifecycle:
+UPLOADED → PROCESSING → VALIDATING → COMPLETED
+Failure states should provide understandable reasons and safe retry options.
+F. Cost and Performance Tracking
+Track:
+Cost per API call.
+Cost per image.
+Cost per product listing.
+Processing time.
+Token usage.
+GPU utilization.
+Failure rate.
+Retry rate.
+G. Model Versioning
+Every processed asset should retain the model version and processing configuration that produced it.
+H. Model Selection Policy
+A model must pass BazarSetu benchmarks before production approval.
+Selection should consider accuracy, fidelity, latency, cost, licensing and deployment requirements.
+8.3 Technical approach
+Potential technologies:
+FastAPI.
+Python.
+Redis.
+Celery or equivalent.
+PyTorch.
+Hugging Face.
+Provider SDKs.
+MLflow.
+Structured logging and monitoring.
+8.4 Output
+The orchestration layer should provide:
+Job status.
+Selected model.
+Processing results.
+Cost information.
+Error details.
+Retry information.
+Model version.
+Audit information.
+8.5 Evaluation
+Job success rate.
+Model fallback success rate.
+Average latency.
+Cost per task.
+Provider failure recovery.
+Model replacement effort.
+Queue processing throughput.
+8.6 Expected outcome
+BazarSetu should be able to use, compare and replace AI models without changing its core product workflows.
+
+SYSTEM 09: DATA, EVALUATION AND INFRASTRUCTURE
+9.1 Why do we need to build this system?
+All other AI systems depend on reliable data, storage, infrastructure and evaluation.
+Without a structured dataset, BazarSetu cannot properly compare models.
+Without versioned storage, it cannot reproduce image-processing results.
+Without evaluation, it cannot determine whether an AI improvement actually improves product quality.
+Without reliable infrastructure, processing may become slow, expensive or unreliable as seller uploads increase.
+Primary purpose: Provide the data foundation, computing infrastructure, storage, evaluation and monitoring needed to operate and continuously improve the entire AI/ML platform.
+9.2 Dataset strategy
+A. Initial dataset
+Proposed starting target: 500–1,000 real product photographs.
+Initial categories:
+Jewellery.
+Pottery and terracotta.
+Textiles.
+Woodcraft.
+Metalcraft.
+Home decor.
+Paintings.
+Expand categories as seller onboarding grows.
+B. Capture difficult examples
+Do not collect only professional photographs.
+Include:
+Dark workshop photographs.
+Yellow indoor lighting.
+Outdoor sunlight.
+Cluttered backgrounds.
+Reflective metal.
+Transparent products.
+Thin jewellery.
+Embroidery.
+Threads and lace.
+Partial occlusion.
+Multiple objects.
+White and black products.
+C. Annotation
+Store:
+Original image.
+Product mask.
+Category.
+Subcategory.
+Material label where verified.
+Lighting condition.
+Background type.
+Difficulty level.
+Human verification status.
+D. Dataset separation
+Maintain:
+Training dataset.
+Validation dataset.
+Permanent held-out benchmark dataset.
+The benchmark set must not be used for training.
+9.3 Product Master and asset storage
+Store original and derived assets separately.
+Suggested structure:
+products/{product_id}/
+original/
+masks/
+cutouts/
+marketplace/
+thumbnails/
+metadata/
+evaluations/
+Marketing and lifestyle image directories are intentionally excluded from this version.
+Each processed asset should retain:
+Asset ID.
+Product ID.
+Source asset ID.
+Model name.
+Model version.
+Processing configuration.
+Quality score.
+Fidelity score.
+Creation timestamp.
+Approval status.
+9.4 Database design
+Initial entities:
+Product.
+ProductImage.
+ProductMaster.
+ProductAttribute.
+ImageJob.
+ImageAsset.
+ImageEvaluation.
+VoiceRecording.
+Transcription.
+Catalogue.
+CatalogueAttribute.
+PricingRecord.
+VerificationRecord.
+AIModel.
+ModelEvaluation.
+ProcessingJob.
+SellerApproval.
+The final schema will be designed during the database architecture phase.
+9.5 Infrastructure
+Initial technology direction:
+Component
+Proposed technology
+Backend
+FastAPI
+Database
+PostgreSQL
+Queue
+Redis
+Background workers
+Celery or equivalent
+Object storage
+S3-compatible storage
+Image processing
+OpenCV, Pillow
+ML framework
+PyTorch
+Model tracking
+MLflow
+Monitoring
+Structured logs and metrics
+CDN
+Suitable image delivery network
+
+Cloud-first processing is the initial direction.
+On-device inference can be explored later after actual performance and cost measurements.
+9.6 Evaluation framework
+Every system must have its own benchmark.
+Examples:
+System
+Important metrics
+Image Intelligence
+Image quality, segmentation and fidelity
+Computer Vision
+Classification and attribute accuracy
+Voice Intelligence
+Word error rate and extraction accuracy
+Multimodal Intelligence
+Cross-modal consistency
+Catalogue Intelligence
+Factuality and schema validity
+Pricing Intelligence
+Calculation correctness
+Verification
+False acceptance and rejection
+Orchestration
+Latency, failures and cost
+Infrastructure
+Availability, throughput and storage reliability
+
+9.7 Performance monitoring
+Measure:
+Upload-to-result time.
+Processing time by stage.
+Failed jobs.
+Queue delays.
+Storage costs.
+GPU utilization.
+API usage.
+Cost per completed product.
+Seller approval rate.
+9.8 Expected outcome
+BazarSetu will have the data and infrastructure required to operate its AI systems reliably and improve them using real product photographs, seller corrections and evaluation results.
+
+3. HOW THE NINE SYSTEMS WORK TOGETHER
+Consider a seller uploading a photograph of a handmade product and recording a description.
+The complete workflow:
+Seller captures product photographs and records voice.
+System 09 stores the original assets and creates processing records.
+System 08 creates and coordinates processing jobs.
+System 01 checks image quality and prepares marketplace images.
+System 02 identifies visual product information.
+System 03 transcribes and structures the seller's description.
+System 04 combines and cross-checks image and voice information.
+System 05 generates the structured marketplace catalogue.
+System 06 calculates cost and pricing recommendations.
+System 07 checks image and catalogue consistency.
+Seller reviews and approves the result.
+The approved catalogue is made available to the BazarSetu marketplace.
+The workflow should support retries, partial failures and seller corrections without losing original data.
+
+4. CROSS-SYSTEM DESIGN REQUIREMENTS
+The following rules apply to all nine systems.
+4.1 Source attribution
+Every important product attribute must identify where it came from.
+Examples:
+Seller-provided.
+Visually detected.
+OCR-extracted.
+Calculated.
+Externally verified.
+Human-confirmed.
+4.2 Confidence handling
+Confidence should be tracked per attribute or prediction, not only as one overall score.
+Confidence thresholds must be calibrated using benchmark data.
+4.3 Human approval
+The seller must be able to review:
+Product photographs.
+Product name.
+Product description.
+Product attributes.
+Pricing.
+Required catalogue declarations.
+4.4 Original asset preservation
+Original photographs and recordings must never be overwritten by AI-generated outputs.
+4.5 Versioning
+Every model, processing configuration, dataset and evaluation should be versioned.
+4.6 Privacy and security
+Restrict access to seller data.
+Use secure storage.
+Apply appropriate retention policies.
+Avoid sending unnecessary personal information to external providers.
+Review provider data handling policies.
+Maintain auditable access and processing records.
+4.7 Failure management
+Every system must define:
+Input validation.
+Failure states.
+Retry policies.
+Fallback mechanisms.
+User-facing error messages.
+Recovery procedures.
+
+5. IMPLEMENTATION ROADMAP
+The systems should not be developed simultaneously.
+The proposed sequence is:
+Phase
+Work
+Dependency
+0
+Finalize system specifications
+Architecture principles
+1
+Dataset collection and annotation
+Data requirements
+2
+AI orchestration foundation
+Backend and model interfaces
+3
+Image quality assessment
+Dataset
+4
+Product detection and segmentation
+Dataset and orchestration
+5
+Product Master and image enhancement
+Segmentation
+6
+Image fidelity and quality verification
+Processed images
+7
+Computer vision and product understanding
+Dataset and vision pipeline
+8
+Voice intelligence
+Audio dataset and orchestration
+9
+Multimodal intelligence
+Vision and voice
+10
+Catalogue intelligence
+Product understanding
+11
+Pricing intelligence
+Seller cost information
+12
+Complete integration and pilot
+All required systems
+
+Infrastructure, security, data governance and evaluation are continuous workstreams rather than isolated final phases.
+
+6. INITIAL MVP PRIORITIES
+We should not try to complete every capability before testing with real sellers.
+The first technical milestone should be:
+One real smartphone photograph → one accurate, professional marketplace-ready product image.
+The first image MVP should include:
+Image upload.
+Quality assessment.
+Product detection.
+Product segmentation.
+Background removal.
+Controlled enhancement.
+Final image verification.
+Seller preview and approval.
+After this pipeline works reliably, we expand into product understanding, voice and catalogue intelligence.
+
+7. SUCCESS CRITERIA
+The complete BazarSetu AI/ML platform should eventually demonstrate:
+Professional product images from ordinary smartphone photographs.
+Faithful preservation of actual products.
+Reliable product recognition.
+Regional-language voice-based catalogue creation.
+Accurate image and voice cross-verification.
+Structured marketplace-compatible catalogues.
+Useful seller-controlled pricing recommendations.
+Reliable product integrity verification.
+Model-provider independence.
+Measurable processing costs and latency.
+Continuous improvement from real seller data.
+Numerical targets for accuracy, latency, cost and approval rates will be established after the initial benchmark and pilot.
+
+8. FINAL ARCHITECTURE PRINCIPLE
+BazarSetu should not become a collection of unrelated AI API integrations.
+It should become a commerce-specific product intelligence platform.
+Its long-term advantage should come from:
+Real Indian product datasets.
+Product-specific computer vision.
+Regional-language seller intelligence.
+Multimodal product understanding.
+Reliable marketplace image processing.
+Product verification and evaluation.
+Proprietary orchestration and workflow logic.
+Continuous learning from seller corrections and real marketplace outcomes.
+The objective is not to build the largest AI model. The objective is to build the most useful, reliable and economically sustainable AI system for bringing real-world products into digital commerce.
+
+Document status: Architecture and system requirements proposed.
+Implementation status: Not implied by this specification.
+Next planning document: System 01 – Product Image Intelligence Detailed Technical Specification.
+

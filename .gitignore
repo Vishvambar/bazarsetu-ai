@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# Storage & Weights (Large files / Generated outputs)
+storage/
+weights/
+*.pth
+*.pt
+*.bin
+*.safetensors
+*.ckpt
+
+# Temporary & Cache
+.ipynb_checkpoints/
+.pytest_cache/
+.DS_Store
