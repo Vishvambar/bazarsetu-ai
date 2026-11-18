@@ -340,3 +340,4 @@ def approve_product_listing(product_id: str, req: SellerApprovalRequest):
         if req.seller_approved else "Listing marked as rejected by seller.",
         audit_file_updated=True
     )
+

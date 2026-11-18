@@ -44,7 +44,7 @@ class BenchmarkRunner:
 
         for img_path in image_files:
             gt_mask_path = dataset_dir / f"{img_path.stem}_mask.png"
-            res: PipelineExecutionResult = self.pipeline.process_single(img_path)
+            res: PipelineExecutionResult = self.pipeline.process_single(img_path, force=True)
             
             if res.status == "COMPLETED":
                 passed_count += 1
