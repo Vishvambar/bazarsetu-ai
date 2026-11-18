@@ -7,8 +7,15 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
+import sys
 from pathlib import Path
 from typing import Any, Dict, List
+
+# Ensure project root is in sys.path
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
 import numpy as np
 
 from config import CONFIG
@@ -22,7 +29,7 @@ class BenchmarkRunner:
     def __init__(self):
         self.pipeline = System1Pipeline()
 
-    def run_benchmark(self, dataset_dir: Path) -> Dict[str, any]:
+    def run_benchmark(self, dataset_dir: Path) -> Dict[str, Any]:
         dataset_dir = Path(dataset_dir)
         image_files = sorted([
             p for p in dataset_dir.glob("*")

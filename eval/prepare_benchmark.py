@@ -7,8 +7,13 @@ with ground-truth masks for quantitative Definition of Done (DOD) verification.
 from __future__ import annotations
 import argparse
 import logging
+import os
+import sys
 from pathlib import Path
 from typing import List, Tuple
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 import cv2
 import numpy as np
 
@@ -121,3 +126,4 @@ if __name__ == "__main__":
     parser.add_argument("--output_dir", type=str, default="/kaggle/working/storage/benchmark_data")
     args = parser.parse_args()
     create_synthetic_artisan_benchmark(Path(args.output_dir))
+
