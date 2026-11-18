@@ -41,11 +41,15 @@ class PipelineExecutionResult:
     quality_code: str
     gpu_inference_latency_ms: float
     total_latency_ms: float
+    original_path: Optional[str] = None
     marketplace_image_path: Optional[str] = None
     thumbnail_path: Optional[str] = None
     cutout_path: Optional[str] = None
     mask_path: Optional[str] = None
     metadata_path: Optional[str] = None
+    bounding_box: Tuple[int, int, int, int] = (0, 0, 0, 0)
+    model_name: str = "BiRefNet-HR"
+    model_version: str = "epoch_244_fp16"
     delta_e00: float = 0.0
     boundary_f1: float = 0.0
 
@@ -194,6 +198,7 @@ class System1Pipeline:
                 "marketplace": str(market_dest),
                 "thumbnail": str(thumb_dest),
             },
+            bounding_box=seg_res.bounding_box,
             seller_approval_status="PENDING_SELLER_REVIEW"
         )
         meta_dest = self.master_manager.save_metadata(record)
@@ -209,11 +214,15 @@ class System1Pipeline:
             quality_code=qa_res.feedback_code,
             gpu_inference_latency_ms=gpu_latency,
             total_latency_ms=total_latency,
+            original_path=str(ingest_res.original_path),
             marketplace_image_path=str(market_dest),
             thumbnail_path=str(thumb_dest),
             cutout_path=str(cutout_dest),
             mask_path=str(mask_dest),
             metadata_path=str(meta_dest),
+            bounding_box=seg_res.bounding_box,
+            model_name=seg_res.model_name,
+            model_version=seg_res.model_version,
             delta_e00=fid_res.delta_e00,
             boundary_f1=fid_res.boundary_f1
         )

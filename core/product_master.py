@@ -45,6 +45,7 @@ class ProcessingAssetRecord:
     quality_metrics: QualityMetricsRecord
     fidelity_metrics: FidelityMetricsRecord
     file_paths: Dict[str, str] = field(default_factory=dict)
+    bounding_box: Tuple[int, int, int, int] = (0, 0, 0, 0)
     seller_approval_status: str = "PENDING_SELLER_REVIEW"
 
 class ProductMasterManager:

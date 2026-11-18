@@ -23,6 +23,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from api.schemas import (
+    BatchUploadResponse,
     FidelityInfo,
     HealthResponse,
     JobStatus,
@@ -86,6 +87,11 @@ def _run_pipeline_job(job_id: str, temp_image_path: Path, product_id: str, force
 
         # Construct relative URLs for client access
         urls = {}
+        if res.original_path:
+            p_orig = Path(res.original_path)
+            rel_orig = p_orig.relative_to(CONFIG.storage_root)
+            urls["original"] = f"/storage/{rel_orig.as_posix()}"
+
         if res.marketplace_image_path:
             p_market = Path(res.marketplace_image_path)
             rel_market = p_market.relative_to(CONFIG.storage_root)
@@ -115,6 +121,9 @@ def _run_pipeline_job(job_id: str, temp_image_path: Path, product_id: str, force
             "quality_code": res.quality_code,
             "completed_at_iso": datetime.now(timezone.utc).isoformat(),
             "urls": urls,
+            "bounding_box": list(res.bounding_box),
+            "model_name": res.model_name,
+            "model_version": res.model_version,
             "fidelity": FidelityInfo(
                 delta_e00=res.delta_e00,
                 boundary_f1=res.boundary_f1,
@@ -210,6 +219,74 @@ async def upload_product_image(
         estimated_wait_seconds=2.0
     )
 
+@app.post(
+    "/v1/products/upload-batch",
+    response_model=BatchUploadResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    tags=["Product Image Intelligence"]
+)
+async def upload_product_batch(
+    background_tasks: BackgroundTasks,
+    files: List[UploadFile] = File(..., description="Batch of 2 to 5 multi-angle photographs (front, side, back, top, detail)"),
+    product_id: Optional[str] = Form(None, description="Shared product identifier for multi-angle batch"),
+    force: bool = Form(False, description="Set True to bypass Quality Gate warnings")
+):
+    """
+    Multi-Angle Batch Upload Endpoint:
+    Accepts 2-5 smartphone product photos and dispatches them across the dual-GPU worker pool.
+    """
+    if len(files) < 1 or len(files) > 10:
+        raise HTTPException(status_code=400, detail="Batch size must be between 1 and 10 photographs (recommended 2-5 angles).")
+
+    product_id = product_id or f"prod_{uuid.uuid4().hex[:10]}"
+    batch_id = f"batch_{uuid.uuid4().hex[:12]}"
+    upload_responses: List[UploadResponse] = []
+
+    temp_dir = CONFIG.storage_root / "temp_uploads"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+
+    for file in files:
+        job_id = f"job_{uuid.uuid4().hex[:12]}"
+        suffix = Path(file.filename or "upload.jpg").suffix or ".jpg"
+        temp_file = temp_dir / f"{job_id}{suffix}"
+
+        with open(temp_file, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        JOBS_DB[job_id] = {
+            "job_id": job_id,
+            "product_id": product_id,
+            "asset_id": None,
+            "status": JobStatus.UPLOADED,
+            "seller_message": "Photo uploaded successfully. Processing in progress...",
+            "quality_code": "PENDING",
+            "created_at_iso": datetime.now(timezone.utc).isoformat(),
+            "completed_at_iso": None,
+            "urls": None,
+            "fidelity": None,
+            "latencies": None,
+            "seller_approval_status": "PENDING_SELLER_REVIEW"
+        }
+
+        background_tasks.add_task(_run_pipeline_job, job_id, temp_file, product_id, force)
+
+        upload_responses.append(UploadResponse(
+            job_id=job_id,
+            product_id=product_id,
+            status=JobStatus.UPLOADED,
+            message=f"Photo '{file.filename}' queued for GPU processing.",
+            estimated_wait_seconds=2.5
+        ))
+
+    return BatchUploadResponse(
+        batch_id=batch_id,
+        product_id=product_id,
+        total_images=len(files),
+        jobs=upload_responses,
+        status=JobStatus.UPLOADED,
+        message=f"Accepted batch of {len(files)} photos for product '{product_id}'. Processing across dual-T4 GPUs."
+    )
+
 @app.get(
     "/v1/jobs/{job_id}",
     response_model=JobStatusResponse,
@@ -234,6 +311,9 @@ def get_job_status(job_id: str):
         created_at_iso=data["created_at_iso"],
         completed_at_iso=data.get("completed_at_iso"),
         urls=data.get("urls"),
+        bounding_box=data.get("bounding_box"),
+        model_name=data.get("model_name"),
+        model_version=data.get("model_version"),
         fidelity=data.get("fidelity"),
         latencies=data.get("latencies"),
         seller_approval_status=data.get("seller_approval_status", "PENDING_SELLER_REVIEW")

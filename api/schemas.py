@@ -43,9 +43,20 @@ class JobStatusResponse(BaseModel):
     created_at_iso: str
     completed_at_iso: Optional[str] = None
     urls: Optional[Dict[str, str]] = None
+    bounding_box: Optional[List[int]] = None
+    model_name: Optional[str] = None
+    model_version: Optional[str] = None
     fidelity: Optional[FidelityInfo] = None
     latencies: Optional[LatencyInfo] = None
     seller_approval_status: str = "PENDING_SELLER_REVIEW"
+
+class BatchUploadResponse(BaseModel):
+    batch_id: str
+    product_id: str
+    total_images: int
+    jobs: List[UploadResponse]
+    status: JobStatus = JobStatus.UPLOADED
+    message: str = "Batch of multi-angle images accepted for background processing."
 
 class TapRefineRequest(BaseModel):
     norm_x: float = Field(..., ge=0.0, le=1.0, description="Normalized X coordinate (0.0 to 1.0)")
