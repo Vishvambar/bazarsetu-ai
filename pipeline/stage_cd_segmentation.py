@@ -74,6 +74,15 @@ class BiRefNetSegmenter:
         self.model = None
         self.model_name = "BiRefNet-HR"
         self.model_version = "epoch_244_fp16"
+        
+        # Pre-allocate normalization constants in VRAM once
+        if DEVICE_MGR.has_cuda:
+            self.mean = torch.tensor([0.485, 0.456, 0.406], device=self.device, dtype=torch.float16).view(1, 3, 1, 1)
+            self.std = torch.tensor([0.229, 0.224, 0.225], device=self.device, dtype=torch.float16).view(1, 3, 1, 1)
+        else:
+            self.mean = None
+            self.std = None
+            
         self._load_model()
 
     def _load_model(self):
@@ -155,10 +164,8 @@ class BiRefNetSegmenter:
                 device=self.device, dtype=torch.float16
             ) / 255.0
             
-            # Standard ImageNet normalization
-            mean = torch.tensor([0.485, 0.456, 0.406], device=self.device, dtype=torch.float16).view(1, 3, 1, 1)
-            std = torch.tensor([0.229, 0.224, 0.225], device=self.device, dtype=torch.float16).view(1, 3, 1, 1)
-            tensor_in = (tensor_in - mean) / std
+            # Standard ImageNet normalization using pre-allocated constants
+            tensor_in = (tensor_in - self.mean) / self.std
 
             # 3. Dedicated GPU Forward Pass Timing via CUDA Events
             start_event = torch.cuda.Event(enable_timing=True)

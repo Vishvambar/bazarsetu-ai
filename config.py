@@ -33,8 +33,8 @@ class ModelConfig:
     # Model Precision: Tesla T4 REQUIRES float16. Never use bfloat16 on Turing (compute 7.5)
     precision: str = "float16"
     
-    # BiRefNet settings
-    birefnet_input_size: Tuple[int, int] = (1024, 1024)
+    # BiRefNet settings (896x896 aligns with Tensor Core 32-byte memory tiles on Turing T4)
+    birefnet_input_size: Tuple[int, int] = (896, 896)
     birefnet_weights_path: Path = field(
         default_factory=lambda: (
             Path("/kaggle/working/weights/birefnet")
