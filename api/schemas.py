@@ -82,3 +82,65 @@ class HealthResponse(BaseModel):
     devices: List[str]
     storage_root: str
 
+class BppUploadImageResponse(BaseModel):
+    status: str = "UPLOADED"
+    url: str
+    filename: str
+    image_type: str = "studio"
+    storage: str = "system1_product_master"
+    asset_id: Optional[str] = None
+    catalog_id: Optional[str] = None
+    raw_image_url: Optional[str] = None
+    studio_image_url: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    quality_code: Optional[str] = "OK"
+    seller_message: Optional[str] = "Photo processed into studio listing."
+
+class SyncProcessResponse(BaseModel):
+    status: str
+    catalog_id: str
+    asset_id: str
+    raw_image_url: str
+    studio_image_url: str
+    thumbnail_url: str
+    quality_code: str
+    seller_message: str
+    bounding_box: List[int]
+    fidelity: FidelityInfo
+    latency_ms: float
+
+class ArtisanListingPayload(BaseModel):
+    catalog_id: str = Field(..., description="Unique SKU / catalog ID from Flutter app")
+    seller_id: str = Field(default="default_artisan")
+    artisan_name: str = Field(default="BazaarSetu Artisan")
+    cluster_name: str = Field(default="Chanderi Handloom Cluster")
+    gps_coordinates: str = Field(default="24.7118,78.1098")
+    area_code: str = Field(default="473446")
+    title_en: str = Field(..., description="English product title")
+    title_hi: str = Field(default="", description="Hindi product title")
+    description_en: str = Field(..., description="English product description")
+    description_hi: str = Field(default="", description="Hindi product description")
+    craft_category: str = Field(default="Handloom Silk")
+    category_id: str = Field(default="ONDC:RET12")
+    materials: List[str] = Field(default_factory=list)
+    dimensions: str = Field(default="1 unit")
+    floor_price: float = Field(..., gt=0)
+    fair_price: float = Field(..., gt=0)
+    premium_price: float = Field(..., gt=0)
+    raw_image_url: Optional[str] = None
+    studio_image_url: str = ""
+    gallery_images: List[str] = Field(default_factory=list)
+    available_qty: int = Field(default=5, ge=0)
+
+class PublishResponse(BaseModel):
+    status: str = "PUBLISHED"
+    message: str
+    catalog_id: str
+    artisan: str
+    fair_price_inr: float
+
+class ListingsListResponse(BaseModel):
+    count: int
+    listings: List[Dict]
+
+
