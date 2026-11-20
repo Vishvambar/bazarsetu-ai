@@ -10,7 +10,7 @@ python3 --version
 
 echo "=== Installing Dependencies ==="
 pip install -q --upgrade pip
-pip install -q einops timm scikit-image opencv-python-headless pydantic
+pip install -q einops timm scikit-image opencv-python-headless pydantic fastapi uvicorn python-multipart
 
 echo "=== Verifying CUDA & Torch Devices ==="
 python3 -c '

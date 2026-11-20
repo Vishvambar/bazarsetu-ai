@@ -71,6 +71,12 @@ In a notebook cell:
 !python eval/benchmark_runner.py --data_dir /kaggle/input/bazarsetu-benchmark/
 ```
 
+### Step 5: Start Live API Server & Tunnel for Amar's Flutter App
+```bash
+!python kaggle/start_api_tunnel.py
+```
+This automatically starts the FastAPI server and launches a free Cloudflare tunnel (`trycloudflare.com`). It will print the public HTTPS URL to copy into Amar's Flutter `.env` (`BPP_BACKEND_URL`).
+
 ---
 
 ## 4. Directory Structure
