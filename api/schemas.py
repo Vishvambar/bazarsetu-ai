@@ -138,6 +138,8 @@ class PublishResponse(BaseModel):
     catalog_id: str
     artisan: str
     fair_price_inr: float
+    raw_image_url: Optional[str] = None
+    studio_image_url: Optional[str] = None
 
 class ListingsListResponse(BaseModel):
     count: int

@@ -672,7 +672,9 @@ async def publish_artisan_listing(listing: ArtisanListingPayload):
         message=f"Listing '{listing.title_en}' is active and ready on ONDC rails.",
         catalog_id=cid,
         artisan=listing.artisan_name,
-        fair_price_inr=listing.fair_price
+        fair_price_inr=listing.fair_price,
+        raw_image_url=listing.raw_image_url,
+        studio_image_url=listing.studio_image_url,
     )
 
 @app.get(
