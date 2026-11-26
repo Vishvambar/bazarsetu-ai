@@ -35,9 +35,7 @@ def _sample_valid_payload(pid: str = "mv_metal1") -> Dict[str, Any]:
         "product_identity": {
             "apparent_product": "Hammered Copper Kalash",
             "catalog_title_en": "Hand-Hammered Tambat Copper Kalash",
-            "catalog_title_hi": "तांबे का हस्तनिर्मित मठार कलश",
-            "description_en": "Hand-hammered copper kalash crafted by Tambat Ali artisans using traditional Mathar Kaam techniques for puja and home decor.",
-            "description_hi": "पुणे के तांबट आली कारीगरों द्वारा पारंपरिक मठार काम से बना शुद्ध तांबे का कलश।",
+            "description_en": "Hand-hammered copper kalash crafted by Tambat Ali artisans for puja and home decor.",
             "composition_type": "single_item",
             "set_contents": [],
             "physical_scale": "tabletop",
@@ -112,6 +110,10 @@ class System2EngineTests(unittest.TestCase):
         self.assertEqual(params["properties"]["ondc_taxonomy"]["properties"]["domain_code"]["type"], "string")
         self.assertIn("ONDC:RET16", params["properties"]["ondc_taxonomy"]["properties"]["domain_code"]["enum"])
         self.assertEqual(params["properties"]["materials"]["items"]["type"], "object")
+        ident_props = params["properties"]["product_identity"]["properties"]
+        self.assertIn("catalog_title_en", ident_props)
+        self.assertNotIn("catalog_title_hi", ident_props)
+        self.assertNotIn("description_hi", ident_props)
 
     def test_extract_payload_handles_tool_calls_and_thought_fallback(self) -> None:
         payload = _sample_valid_payload()

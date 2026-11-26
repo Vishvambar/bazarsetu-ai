@@ -65,9 +65,7 @@ class System2ContractAndEvalTests(unittest.TestCase):
                 "product_identity": {
                     "apparent_product": gt["subcategory"],
                     "catalog_title_en": f"Handcrafted {gt['subcategory']}",
-                    "catalog_title_hi": f"हस्तनिर्मित {gt['subcategory']}",
                     "description_en": "Authentic handmade artisan product crafted using traditional regional techniques.",
-                    "description_hi": "पारंपरिक विधि से कारीगर द्वारा हाथ से निर्मित सुंदर उत्पाद।",
                     "composition_type": gt["composition_type"],
                     "set_contents": [],
                     "physical_scale": gt["physical_scale"],
@@ -142,9 +140,7 @@ class System2ContractAndEvalTests(unittest.TestCase):
                 "product_identity": {
                     "apparent_product": gt["subcategory"],
                     "catalog_title_en": f"Handcrafted {gt['subcategory']}",
-                    "catalog_title_hi": f"हस्तनिर्मित {gt['subcategory']}",
                     "description_en": "Craft item.",
-                    "description_hi": "हस्तशिल्प उत्पाद।",
                     "composition_type": gt["composition_type"],
                     "set_contents": [],
                     "physical_scale": gt["physical_scale"],

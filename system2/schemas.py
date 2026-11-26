@@ -159,13 +159,9 @@ class ONDCTaxonomy(BaseModel):
 
 class ProductIdentity(BaseModel):
     apparent_product: str = Field(..., description="Plain-language name of the physical object")
-    catalog_title_en: str = Field(..., description="English SEO title (40-70 chars)")
-    catalog_title_hi: str = Field(..., description="Natural conversational Hindi title in Devanagari")
+    catalog_title_en: str = Field(..., description="Concise English ONDC title (40-70 chars)")
     description_en: str = Field(
-        ..., description="Concise e-commerce storytelling description in English (15-30 words)"
-    )
-    description_hi: str = Field(
-        ..., description="Concise conversational Hindi description in Devanagari (15-25 words)"
+        ..., description="One concise English product description sentence (10-18 words)"
     )
     composition_type: CompositionType = CompositionType.SINGLE_ITEM
     set_contents: List[str] = Field(default_factory=list)

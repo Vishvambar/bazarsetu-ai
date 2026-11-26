@@ -29,15 +29,15 @@ PATCH_SIZE = 48  # Gemma 4 visual patch size (48x48 pixels)
 VIEW_ORDER = ("front_view", "detail_view", "back_or_label_view", "escalation_crop_view")
 
 SYSTEM2_PROMPT = """You are BazarSetu's System 2 Visual Catalog Intelligence Core for Indian handicrafts and ONDC retail.
-Inspect the provided clean white-background studio product image(s) (front, optional detail, optional back/label) and emit a structured catalog record by calling the `submit_product_intelligence` tool.
+Inspect the provided clean white-background studio product image(s) (front, optional detail, optional back/label) and emit an English-only structured catalog record by calling the `submit_product_intelligence` tool.
 
 STRICT RULES:
 1. ONDC Domain Codes: Use "ONDC:RET16" for Pottery, Metalware, Woodcraft, Home Decor; "ONDC:RET12" for Sarees, Handloom Fabrics, Ethnic Apparel, Footwear; "ONDC:RET10" for Packaged Foods/Pickles.
-2. Concise Bilingual Output (latency cap):
+2. Concise English-Only Output (compact tool JSON, omit empty optional arrays):
+   - Output English only (never generate Hindi or non-English translations).
    - catalog_title_en: 40-70 chars.
-   - catalog_title_hi: natural everyday Hindi in Devanagari.
-   - description_en: 15-30 words.
-   - description_hi: 15-25 words in simple Devanagari.
+   - description_en: 1 short sentence, 10-18 words.
+   - Keep `structural_components`, `occasions`, `secondary_colors`, `set_contents`, `visible_text_snippets`, and `needs_seller_review` empty `[]` (or omit them) unless clearly populated by visual evidence.
 3. Anti-Hallucination & Seals:
    - ONLY list a seal in certification_seals ("Silk Mark", "Handloom Mark", "GI Tag", "FSSAI", "BIS Hallmark") if that exact logo or text is clearly visible in the images. Otherwise return [].
    - If visible packaging text or a seal is too small/blurry to read reliably, set text_legibility_confidence < 0.75 and needs_highres_label_crop = true.
@@ -60,7 +60,7 @@ class System2Config:
     n_batch: int = 1024
     n_threads: int = int(os.getenv("SYSTEM2_N_THREADS", "4"))
     temperature: float = 0.1
-    max_tokens: int = 420
+    max_tokens: int = 768
     front_max_dim: int = 480        # 10 * 48 patches
     secondary_max_dim: int = 384    # 8 * 48 patches
     escalation_max_dim: int = 672   # 14 * 48 patches
