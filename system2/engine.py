@@ -276,18 +276,19 @@ class System2Engine:
 
             model_path, mmproj_path = self._resolve_model_paths()
 
-            # Inspect Gemma4ChatHandler signature cleanly across llama-cpp-python versions
+            # Inspect Gemma4ChatHandler signature (supports **kwargs delegating to MTMDBaseHandler)
             handler_sig = inspect.signature(Gemma4ChatHandler.__init__).parameters
+            has_varkw = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in handler_sig.values())
             handler_kwargs: Dict[str, Any] = {"verbose": self.cfg.verbose}
-            if "mmproj_path" in handler_sig:
+            if "mmproj_path" in handler_sig or has_varkw:
                 handler_kwargs["mmproj_path"] = mmproj_path
             elif "clip_model_path" in handler_sig:
                 handler_kwargs["clip_model_path"] = mmproj_path
-            if "enable_thinking" in handler_sig:
+            if "enable_thinking" in handler_sig or has_varkw:
                 handler_kwargs["enable_thinking"] = self.cfg.enable_thinking
-            if "flash_attn" in handler_sig:
+            if "flash_attn" in handler_sig or has_varkw:
                 handler_kwargs["flash_attn"] = False
-            if "use_gpu" in handler_sig:
+            if "use_gpu" in handler_sig or has_varkw:
                 handler_kwargs["use_gpu"] = True
 
             self._chat_handler = Gemma4ChatHandler(**handler_kwargs)
