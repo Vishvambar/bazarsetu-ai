@@ -103,7 +103,15 @@ class System2EngineTests(unittest.TestCase):
         tool = build_product_intelligence_tool()
         self.assertEqual(tool["type"], "function")
         self.assertEqual(tool["function"]["name"], "submit_product_intelligence")
-        self.assertIn("ondc_taxonomy", tool["function"]["parameters"]["properties"])
+        params = tool["function"]["parameters"]
+        serialized = json.dumps(params)
+        self.assertNotIn("$defs", serialized)
+        self.assertNotIn("$ref", serialized)
+        self.assertEqual(params["properties"]["ondc_taxonomy"]["type"], "object")
+        self.assertIn("domain_code", params["properties"]["ondc_taxonomy"]["properties"])
+        self.assertEqual(params["properties"]["ondc_taxonomy"]["properties"]["domain_code"]["type"], "string")
+        self.assertIn("ONDC:RET16", params["properties"]["ondc_taxonomy"]["properties"]["domain_code"]["enum"])
+        self.assertEqual(params["properties"]["materials"]["items"]["type"], "object")
 
     def test_extract_payload_handles_tool_calls_and_thought_fallback(self) -> None:
         payload = _sample_valid_payload()
@@ -122,13 +130,13 @@ class System2EngineTests(unittest.TestCase):
         parsed = extract_tool_or_json_payload(resp_tool)
         self.assertEqual(parsed["product_id"], "mv_metal1")
 
-        # Fallback: empty Gemma thought channel prefix + fenced JSON in content
+        # Fallback: empty Gemma 4 channel thought prefix + fenced JSON in content
         resp_thought = {
             "choices": [
                 {
                     "message": {
                         "role": "assistant",
-                        "content": f"<|thought|>\n<|thought|>```json\n{json.dumps(payload)}\n```",
+                        "content": f"<|channel>thought\n<channel|>```json\n{json.dumps(payload)}\n```",
                     }
                 }
             ]

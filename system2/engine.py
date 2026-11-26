@@ -102,21 +102,67 @@ def prepare_view_data_uri(image_path: str | Path, max_dim: int) -> str:
     return f"data:image/jpeg;base64,{b64}"
 
 
+def _resolve_json_schema_refs(node: Any, defs: Dict[str, Any]) -> Any:
+    """
+    Recursively inline JSON Schema $ref/$defs and flatten nullable anyOf so
+    Gemma 4's tool declaration template sees every nested object's properties.
+    """
+    if isinstance(node, list):
+        return [_resolve_json_schema_refs(item, defs) for item in node]
+    if not isinstance(node, dict):
+        return node
+
+    if "$ref" in node:
+        ref_key = node["$ref"].split("/")[-1]
+        target = _resolve_json_schema_refs(defs.get(ref_key, {}), defs)
+        merged = dict(target) if isinstance(target, dict) else {}
+        for k, v in node.items():
+            if k != "$ref":
+                merged[k] = _resolve_json_schema_refs(v, defs)
+        return merged
+
+    if "anyOf" in node and isinstance(node["anyOf"], list):
+        non_null = [
+            opt for opt in node["anyOf"]
+            if not (isinstance(opt, dict) and opt.get("type") == "null")
+        ]
+        if len(non_null) == 1:
+            resolved = _resolve_json_schema_refs(non_null[0], defs)
+            if isinstance(resolved, dict):
+                merged = dict(resolved)
+                for k, v in node.items():
+                    if k != "anyOf":
+                        merged[k] = _resolve_json_schema_refs(v, defs)
+                return merged
+
+    out: Dict[str, Any] = {}
+    for k, v in node.items():
+        if k == "$defs":
+            continue
+        out[k] = _resolve_json_schema_refs(v, defs)
+    return out
+
+
 def build_product_intelligence_tool() -> Dict[str, Any]:
-    """Return OpenAI tool specification derived directly from ProductIntelligenceOutput."""
+    """Return inlined OpenAI tool spec with zero $ref/$defs for Gemma4ChatHandler."""
+    raw_schema = ProductIntelligenceOutput.model_json_schema()
+    defs = raw_schema.get("$defs", {})
+    inlined = _resolve_json_schema_refs(raw_schema, defs)
+    inlined.pop("$defs", None)
     return {
         "type": "function",
         "function": {
             "name": "submit_product_intelligence",
             "description": "Submit the extracted ONDC product intelligence JSON record.",
-            "parameters": ProductIntelligenceOutput.model_json_schema(),
+            "parameters": inlined,
         },
     }
 
 
 def _strip_thought_and_fences(raw_text: str) -> str:
     """Remove any empty/residual Gemma 4 thought blocks and markdown code fences."""
-    cleaned = re.sub(r"<\|?thought\|?>.*?<\|?thought\|?>", "", raw_text, flags=re.DOTALL | re.IGNORECASE)
+    cleaned = re.sub(r"<\|?channel>thought.*?<channel\|>", "", raw_text, flags=re.DOTALL | re.IGNORECASE)
+    cleaned = re.sub(r"<\|?thought\|?>.*?<\|?thought\|?>", "", cleaned, flags=re.DOTALL | re.IGNORECASE)
     cleaned = re.sub(r"<\|?thought\|?>", "", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned.strip(), flags=re.MULTILINE)
     cleaned = re.sub(r"\s*```\s*$", "", cleaned, flags=re.MULTILINE)
@@ -196,8 +242,15 @@ class System2Engine:
         with self._lock:
             if self._llm is not None:
                 return
+            import llama_cpp
             from llama_cpp import Llama
             from llama_cpp.llama_chat_format import Gemma4ChatHandler
+
+            if not llama_cpp.llama_supports_gpu_offload():
+                raise RuntimeError(
+                    "llama-cpp-python was compiled WITHOUT CUDA GPU offload! "
+                    "Re-run kaggle/setup_kaggle.sh to build with GGML_CUDA=on (-DCMAKE_CUDA_ARCHITECTURES=75)."
+                )
 
             model_path, mmproj_path = self._resolve_model_paths()
 
@@ -331,3 +384,4 @@ class System2Engine:
 
         validated = ProductIntelligenceOutput.model_validate(payload)
         return validated.model_dump(mode="json")
+
