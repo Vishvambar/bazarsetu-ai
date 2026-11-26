@@ -79,6 +79,13 @@ def evaluate_pipeline(
     }
     latencies_ms: List[float] = []
     failures: List[str] = []
+    attribute_mismatches: Dict[str, List[str]] = {
+        "color": [],
+        "scale": [],
+        "composition": [],
+        "material": [],
+        "craft": [],
+    }
 
     total_records = len(records)
     for idx, row in enumerate(records, start=1):
@@ -114,29 +121,47 @@ def evaluate_pipeline(
                 f"{pid}: domain {pred.ondc_taxonomy.domain_code.value} != {gt['domain_code']}"
             )
 
-        if (
-            pred.color_profile.primary_color.standard_family.strip().lower()
-            == gt["primary_color_family"].strip().lower()
-        ):
+        pred_color = pred.color_profile.primary_color.standard_family.strip()
+        if pred_color.lower() == gt["primary_color_family"].strip().lower():
             counts["color_match"] += 1
+        else:
+            attribute_mismatches["color"].append(
+                f"{pid}: {pred_color} != {gt['primary_color_family']}"
+            )
 
         if pred.product_identity.physical_scale.value == gt["physical_scale"]:
             counts["scale_match"] += 1
+        else:
+            attribute_mismatches["scale"].append(
+                f"{pid}: {pred.product_identity.physical_scale.value} != {gt['physical_scale']}"
+            )
 
         if pred.product_identity.composition_type.value == gt["composition_type"]:
             counts["composition_match"] += 1
+        else:
+            attribute_mismatches["composition"].append(
+                f"{pid}: {pred.product_identity.composition_type.value} != {gt['composition_type']}"
+            )
 
         if (
             pred.materials[0].material_family.strip().lower()
             == gt["primary_material_family"].strip().lower()
         ):
             counts["material_match"] += 1
+        else:
+            attribute_mismatches["material"].append(
+                f"{pid}: {pred.materials[0].material_family} != {gt['primary_material_family']}"
+            )
 
         pred_crafts = {c.strip().lower() for c in pred.pattern_and_craft.craft_techniques}
         for exp_craft in gt.get("expected_craft_techniques", []):
             counts["craft_total"] += 1
             if exp_craft.strip().lower() in pred_crafts:
                 counts["craft_hits"] += 1
+            else:
+                attribute_mismatches["craft"].append(
+                    f"{pid}: missed '{exp_craft}' (got {sorted(pred_crafts)})"
+                )
 
         # Seller review trigger check (Recall on ambiguous + False-Positive rate on clear)
         flagged_review = len(pred.audit_telemetry.needs_seller_review) > 0
@@ -208,6 +233,7 @@ def evaluate_pipeline(
         "p50_latency_ms": round(float(np.percentile(latencies_ms, 50)), 1),
         "p95_latency_ms": round(float(np.percentile(latencies_ms, 95)), 1),
         "failures": failures,
+        "attribute_mismatches": attribute_mismatches,
     }
     report["all_gates_passed"] = check_release_gates(report)
     return report

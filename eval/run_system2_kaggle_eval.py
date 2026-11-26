@@ -99,7 +99,7 @@ def main() -> int:
     print(" BAZARSETU V3.0 - SYSTEM 2 STEP 4 RELEASE GATE SCORECARD")
     print("=" * 68)
     for key, val in report.items():
-        if key == "failures":
+        if key in ("failures", "attribute_mismatches"):
             continue
         print(f"  {key:30s}: {val}")
     print("-" * 68)
@@ -107,6 +107,11 @@ def main() -> int:
     print(f"  Failures ({len(report['failures'])})               :")
     for f in report["failures"][:15]:
         print(f"    - {f}")
+    mismatches = report.get("attribute_mismatches") or {}
+    for m_key in ("color", "scale", "composition", "craft", "material"):
+        items = mismatches.get(m_key) or []
+        if items:
+            print(f"  {m_key.title()} mismatches ({len(items)})     : {', '.join(items[:8])}")
     print("=" * 68 + "\n")
     logger.info("Saved full report -> %s", report_path)
     return 0 if report["all_gates_passed"] else 1

@@ -36,23 +36,23 @@ PATCH_SIZE = 48  # Gemma 4 visual patch size (48x48 pixels)
 VIEW_ORDER = ("front_view", "detail_view", "back_or_label_view", "escalation_crop_view")
 
 SYSTEM2_PROMPT = """You are BazarSetu's System 2 Visual Catalog Intelligence Core for Indian handicrafts and ONDC retail.
-Inspect all views of the white-background product image(s) and output ONLY ONE single-line compact JSON object in English (no markdown fences, no commentary, omit empty optional lists).
+Inspect ALL views of the product image(s) carefully and output ONLY ONE single-line compact JSON object in English (no markdown fences, no commentary, omit empty optional lists). Keep "desc" crisp (8-14 words) and "kw" <= 2 short tags.
 
-Allowed enum values (use EXACT strings):
-- domain: "ONDC:RET16" (Pottery, Metalware, Woodcraft, Stone/Home Decor) | "ONDC:RET12" (Sarees, Handloom Fabrics, Apparel, Footwear) | "ONDC:RET10" (Packaged Foods/Pickles)
-- comp: "single_item" | "matched_set" | "multipack" | "product_with_packaging"
-- scale: "pocket_wearable" | "handheld" | "tabletop" | "floor_standing" | "draped_fabric"
-- color_fam: "Red"|"Blue"|"Green"|"Yellow"|"Orange"|"Pink"|"Purple"|"Grey"|"Black"|"White"|"Brown"|"Gold"|"Silver"|"Beige"|"Multicolor" (use Gold for brass/bronze, Silver for steel/pewter/silver, Orange for copper/terracotta)
+Exact Enum & Labeling Rules:
+- domain: "ONDC:RET16" (Pottery, Metalware, Woodcraft, Stone/Home Decor, decorative Jewellery Boxes) | "ONDC:RET12" (Sarees, Fabrics, Kurtas/Dhotis/Apparel, Footwear) | "ONDC:RET10" (Packaged Foods/Pickles jars)
+- comp: "single_item" (1 primary object even if hangtags attached) | "matched_set" (2+ coordinated bowls/figurines/garments like kurta+dupatta/2 fabric bolts) | "multipack" (3+ identical small units e.g. diyas) | "product_with_packaging" (labelled jar/box or product+cardboard box)
+- scale: "pocket_wearable" (footwear/chappals, jewelry) | "handheld" (mugs, cups, tumblers, small bowls, oil diyas) | "tabletop" (vases, teapots, pots, kalash, urlis, large serving bowls, boxes, jars, idols, wall art) | "floor_standing" (tall floor samai lamps, tall planters) | "draped_fabric" (ALL sarees, dhotis, veshtis, kurtas, kaftans, dupattas, fabric lengths)
+- color_fam: EXACT one of ["Red","Blue","Green","Yellow","Orange","Pink","Purple","Grey","Black","White","Brown","Gold","Silver","Beige","Multicolor"] (Gold=brass/bronze/gold metal; Silver=silver/pewter/white metal; Orange=burnished copper/saffron; Brown=wood/terracotta clay/leather/pickle jars)
 - finish: "matte"|"glossy"|"metallic"|"oxidized_antique"|"raw_natural"|"woven_textile"|"hammered_mathar"|"glazed"
 - mat_fam: "Metal"|"Textile"|"Wood"|"Clay_Ceramic"|"Leather"|"Stone"|"Glass"|"Natural_Fiber"|"Paper_Bamboo"
 - pat: subset of ["solid","geometric","floral","traditional_motif","warli_tribal","striped","checked","abstract"]
-- craft: canonical snake_case when clearly visible: ["hand_hammered_mathar","lost_wax_cast","engraved","embossed","hand_painted","glazed","hand_carved","pit_fired","zari_brocade","embroidery","block_print","warli_painted"]
-- seals: ONLY clearly legible logos/text from ["Silk Mark","Handloom Mark","GI Tag","India Handmade","FSSAI","BIS Hallmark"], else []
-- text: true if visible packaging/tag text/seal exists, else false; legib: 0.0-1.0; crop: true ONLY if visible text/seal is too small/blurry to read
-- review: ["materials[0].material_name"] if purity/material/craft is genuinely ambiguous (set mat_conf < 0.75), else []
+- craft: exact snake_case from ["hand_hammered_mathar","lost_wax_cast","engraved","embossed","hand_painted","glazed","hand_carved","pit_fired","zari_brocade","embroidery","block_print","warli_painted"] when visible (gold zari saree border=zari_brocade; stitched kurta=embroidery; dimpled metal=hand_hammered_mathar; carved wood=hand_carved; matte rustic terracotta=pit_fired)
+- seals: carefully inspect ALL hangtags/labels/cards! List EVERY clearly recognizable mark ONLY from ["Silk Mark","Handloom Mark","GI Tag","FSSAI","BIS Hallmark"] (butterfly/'SILK MARK'="Silk Mark"; handloom wheel/text="Handloom Mark"; teardrop map-pin/'GI Tag'="GI Tag"; 'fssai'/green veg dot jar="FSSAI"; never invent tags or use 'India Handloom'). Else []
+- text: true if any tag/label text is present, else false; legib: 0.0-1.0; crop: true ONLY if seal/label is blurry
+- review: set "mat_conf": 0.65 and "review": ["materials[0].material_name"] ONLY IF: (a) item fuses 2 primary materials (e.g. ceramic+cane) or shows 2 unlabelled contrasting fabrics side-by-side; (b) mirror-polished unmarked golden metal bowl/set or mixed copper+brass tones where metal purity cannot be verified; (c) unlabelled solid/textured kurta or plain fabric with no Silk Mark/zari weave. For clear terracotta/wood/carved/hammered/zari craft items, "review": []!
 
 Example:
-{"product":"Brass Kalash","title":"Hand-Hammered Brass Ceremonial Kalash","desc":"Traditional hand-hammered brass kalash pot crafted by artisans for puja decor.","comp":"single_item","scale":"tabletop","domain":"ONDC:RET16","cat":"Metalware","subcat":"Brass Kalash","color":"Antique Brass","color_fam":"Gold","finish":"hammered_mathar","mat":"Brass","mat_fam":"Metal","mat_conf":0.95,"pat":["solid"],"craft":["hand_hammered_mathar"],"seals":[],"text":false,"legib":1.0,"crop":false,"conf":0.94,"review":[],"kw":["brass kalash","puja pot"]}"""
+{"product":"Brass Kalash","title":"Hand-Hammered Brass Ceremonial Kalash","desc":"Handcrafted hammered brass kalash vessel for daily puja decor.","comp":"single_item","scale":"tabletop","domain":"ONDC:RET16","cat":"Metalware","subcat":"Brass Kalash","color":"Antique Brass","color_fam":"Gold","finish":"hammered_mathar","mat":"Brass","mat_fam":"Metal","mat_conf":0.95,"craft":["hand_hammered_mathar"],"seals":[],"text":false,"legib":1.0,"crop":false,"conf":0.94,"review":[],"kw":["brass kalash","puja pot"]}"""
 
 LEGACY_TOOLS_PROMPT = """You are BazarSetu's System 2 Visual Catalog Intelligence Core for Indian handicrafts and ONDC retail.
 Inspect the provided clean white-background studio product image(s) and emit an English-only structured catalog record by calling `submit_product_intelligence`."""
@@ -72,9 +72,9 @@ class System2Config:
     n_threads: int = int(os.getenv("SYSTEM2_N_THREADS", "4"))
     temperature: float = 0.1
     max_tokens: int = 380
-    front_max_dim: int = 480        # 10 * 48 patches
+    front_max_dim: int = 672        # 14 * 48 patches (keeps 16:9 seals/tags legible!)
     secondary_max_dim: int = 384    # 8 * 48 patches
-    escalation_max_dim: int = 672   # 14 * 48 patches
+    escalation_max_dim: int = 672   # 14 * 48 patches (used for back_or_label_view / escalations)
     enable_thinking: bool = False
     use_tools: bool = False         # Disabled by default: tools GBNF drops T4 speed 2.1x on 262k vocab
     verbose: bool = False
@@ -211,8 +211,8 @@ def _coerce_color_family(raw_val: Any) -> str:
     low = val.lower()
     alias_map = {
         "copper": "Orange",
-        "terracotta": "Orange",
-        "rust": "Orange",
+        "terracotta": "Brown",
+        "rust": "Brown",
         "brass": "Gold",
         "bronze": "Gold",
         "golden": "Gold",
@@ -612,7 +612,7 @@ class System2Engine:
         for vkey in ordered_keys:
             raw_path = Path(views[vkey])
             resolved_path = raw_path if raw_path.is_absolute() else (self._base_dir / raw_path)
-            if escalation_mode or vkey == "escalation_crop_view":
+            if escalation_mode or vkey in ("escalation_crop_view", "back_or_label_view"):
                 max_dim = self.cfg.escalation_max_dim
             elif vkey == "front_view":
                 max_dim = self.cfg.front_max_dim
