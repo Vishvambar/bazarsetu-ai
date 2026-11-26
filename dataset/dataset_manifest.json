@@ -1,0 +1,730 @@
+{
+  "dataset_name": "BazarSetu System 2 Golden Evaluation Dataset",
+  "total_products": 43,
+  "total_images": 52,
+  "splits": {
+    "metalware": 8,
+    "pottery_wood": 8,
+    "handloom": 8,
+    "seals_tags": 8,
+    "ambiguous": 5,
+    "multiview": 6
+  },
+  "products": [
+    {
+      "product_id": "metalware1",
+      "split": "metalware",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/metalware/metalware1.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/metalware1_front.png"
+      },
+      "dimensions": {
+        "front_view": "500x333"
+      },
+      "low_resolution_flag": true,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "metalware2",
+      "split": "metalware",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/metalware/metalware2.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/metalware2_front.png"
+      },
+      "dimensions": {
+        "front_view": "399x501"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "metalware3",
+      "split": "metalware",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/metalware/metalware3.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/metalware3_front.png"
+      },
+      "dimensions": {
+        "front_view": "225x225"
+      },
+      "low_resolution_flag": true,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "metalware4",
+      "split": "metalware",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/metalware/metalware4.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/metalware4_front.png"
+      },
+      "dimensions": {
+        "front_view": "153x306"
+      },
+      "low_resolution_flag": true,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "metalware5",
+      "split": "metalware",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/metalware/metalware5.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/metalware5_front.png"
+      },
+      "dimensions": {
+        "front_view": "554x554"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "metalware6",
+      "split": "metalware",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/metalware/metalware6.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/metalware6_front.png"
+      },
+      "dimensions": {
+        "front_view": "508x603"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "metalware7",
+      "split": "metalware",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/metalware/metalware7.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/metalware7_front.png"
+      },
+      "dimensions": {
+        "front_view": "500x750"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "metalware8",
+      "split": "metalware",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/metalware/metalware8.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/metalware8_front.png"
+      },
+      "dimensions": {
+        "front_view": "500x749"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "pottery_wood1",
+      "split": "pottery_wood",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/pottery_wood/pottery_wood1.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/pottery_wood1_front.png"
+      },
+      "dimensions": {
+        "front_view": "447x447"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "pottery_wood10",
+      "split": "pottery_wood",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/pottery_wood/pottery_wood10.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/pottery_wood10_front.png"
+      },
+      "dimensions": {
+        "front_view": "447x447"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "pottery_wood2",
+      "split": "pottery_wood",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/pottery_wood/pottery_wood2.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/pottery_wood2_front.png"
+      },
+      "dimensions": {
+        "front_view": "225x225"
+      },
+      "low_resolution_flag": true,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "pottery_wood3",
+      "split": "pottery_wood",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/pottery_wood/pottery_wood3.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/pottery_wood3_front.png"
+      },
+      "dimensions": {
+        "front_view": "240x300"
+      },
+      "low_resolution_flag": true,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "pottery_wood4",
+      "split": "pottery_wood",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/pottery_wood/pottery_wood4.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/pottery_wood4_front.png"
+      },
+      "dimensions": {
+        "front_view": "446x448"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "pottery_wood5",
+      "split": "pottery_wood",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/pottery_wood/pottery_wood5.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/pottery_wood5_front.png"
+      },
+      "dimensions": {
+        "front_view": "378x529"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "pottery_wood7",
+      "split": "pottery_wood",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/pottery_wood/pottery_wood7.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/pottery_wood7_front.png"
+      },
+      "dimensions": {
+        "front_view": "447x447"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "pottery_wood8",
+      "split": "pottery_wood",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/pottery_wood/pottery_wood8.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/pottery_wood8_front.png"
+      },
+      "dimensions": {
+        "front_view": "325x490"
+      },
+      "low_resolution_flag": true,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "handloom1",
+      "split": "handloom",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/handloom/handloom1.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/handloom1_front.png"
+      },
+      "dimensions": {
+        "front_view": "554x554"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "handloom2",
+      "split": "handloom",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/handloom/handloom2.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/handloom2_front.png"
+      },
+      "dimensions": {
+        "front_view": "495x620"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "handloom3",
+      "split": "handloom",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/handloom/handloom3.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/handloom3_front.png"
+      },
+      "dimensions": {
+        "front_view": "447x447"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "handloom4",
+      "split": "handloom",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/handloom/handloom4.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/handloom4_front.png"
+      },
+      "dimensions": {
+        "front_view": "638x480"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "handloom5",
+      "split": "handloom",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/handloom/handloom5.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/handloom5_front.png"
+      },
+      "dimensions": {
+        "front_view": "1440x1800"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "handloom6",
+      "split": "handloom",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/handloom/handloom6.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/handloom6_front.png"
+      },
+      "dimensions": {
+        "front_view": "720x900"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "handloom7",
+      "split": "handloom",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/handloom/handloom7.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/handloom7_front.png"
+      },
+      "dimensions": {
+        "front_view": "720x900"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "handloom8",
+      "split": "handloom",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/handloom/handloom8.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/handloom8_front.png"
+      },
+      "dimensions": {
+        "front_view": "365x547"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "seal1",
+      "split": "seals_tags",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/seals_tags/seal1.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/seal1_front.png"
+      },
+      "dimensions": {
+        "front_view": "995x570"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "seal2",
+      "split": "seals_tags",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/seals_tags/seal2.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/seal2_front.png"
+      },
+      "dimensions": {
+        "front_view": "1200x896"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "seal3",
+      "split": "seals_tags",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/seals_tags/seal3.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/seal3_front.png"
+      },
+      "dimensions": {
+        "front_view": "1200x896"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "seal4",
+      "split": "seals_tags",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/seals_tags/seal4.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/seal4_front.png"
+      },
+      "dimensions": {
+        "front_view": "896x1200"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "seal5",
+      "split": "seals_tags",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/seals_tags/seal5.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/seal5_front.png"
+      },
+      "dimensions": {
+        "front_view": "896x1200"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "tag1",
+      "split": "seals_tags",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/seals_tags/tag1.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/tag1_front.png"
+      },
+      "dimensions": {
+        "front_view": "1024x572"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "tag2",
+      "split": "seals_tags",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/seals_tags/tag2.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/tag2_front.png"
+      },
+      "dimensions": {
+        "front_view": "1376x768"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "tag3",
+      "split": "seals_tags",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/seals_tags/tag3.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/tag3_front.png"
+      },
+      "dimensions": {
+        "front_view": "1376x768"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "ambiguous1",
+      "split": "ambiguous",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/ambiguous/ambiguous1.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/ambiguous1_front.png"
+      },
+      "dimensions": {
+        "front_view": "1024x572"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": true
+    },
+    {
+      "product_id": "ambiguous2",
+      "split": "ambiguous",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/ambiguous/ambiguous2.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/ambiguous2_front.png"
+      },
+      "dimensions": {
+        "front_view": "1024x572"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": true
+    },
+    {
+      "product_id": "ambiguous3",
+      "split": "ambiguous",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/ambiguous/ambiguous3.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/ambiguous3_front.png"
+      },
+      "dimensions": {
+        "front_view": "1024x572"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": true
+    },
+    {
+      "product_id": "ambiguous4",
+      "split": "ambiguous",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/ambiguous/ambiguous4.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/ambiguous4_front.png"
+      },
+      "dimensions": {
+        "front_view": "1024x572"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": true
+    },
+    {
+      "product_id": "ambiguous5",
+      "split": "ambiguous",
+      "view_count": 1,
+      "raw_views": {
+        "front_view": "dataset/raw/ambiguous/ambiguous5.png"
+      },
+      "golden_views": {
+        "front_view": "storage/golden/ambiguous5_front.png"
+      },
+      "dimensions": {
+        "front_view": "1200x896"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": true
+    },
+    {
+      "product_id": "mv_handloom1",
+      "split": "multiview",
+      "view_count": 3,
+      "raw_views": {
+        "back_or_label_view": "dataset/raw/multiview/mv_handloom1/back.png",
+        "detail_view": "dataset/raw/multiview/mv_handloom1/detail.png",
+        "front_view": "dataset/raw/multiview/mv_handloom1/front.png"
+      },
+      "golden_views": {
+        "back_or_label_view": "storage/golden/mv_handloom1_back.png",
+        "detail_view": "storage/golden/mv_handloom1_detail.png",
+        "front_view": "storage/golden/mv_handloom1_front.png"
+      },
+      "dimensions": {
+        "back_or_label_view": "1200x896",
+        "detail_view": "1200x896",
+        "front_view": "1200x896"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "mv_handloom2",
+      "split": "multiview",
+      "view_count": 2,
+      "raw_views": {
+        "detail_view": "dataset/raw/multiview/mv_handloom2/detail.png",
+        "front_view": "dataset/raw/multiview/mv_handloom2/front.png"
+      },
+      "golden_views": {
+        "detail_view": "storage/golden/mv_handloom2_detail.png",
+        "front_view": "storage/golden/mv_handloom2_front.png"
+      },
+      "dimensions": {
+        "detail_view": "1024x1024",
+        "front_view": "1024x1024"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "mv_metal1",
+      "split": "multiview",
+      "view_count": 2,
+      "raw_views": {
+        "detail_view": "dataset/raw/multiview/mv_metal1/detail.png",
+        "front_view": "dataset/raw/multiview/mv_metal1/front.png"
+      },
+      "golden_views": {
+        "detail_view": "storage/golden/mv_metal1_detail.png",
+        "front_view": "storage/golden/mv_metal1_front.png"
+      },
+      "dimensions": {
+        "detail_view": "896x1200",
+        "front_view": "896x1200"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "mv_pottery1",
+      "split": "multiview",
+      "view_count": 2,
+      "raw_views": {
+        "detail_view": "dataset/raw/multiview/mv_pottery1/detail.png",
+        "front_view": "dataset/raw/multiview/mv_pottery1/front.png"
+      },
+      "golden_views": {
+        "detail_view": "storage/golden/mv_pottery1_detail.png",
+        "front_view": "storage/golden/mv_pottery1_front.png"
+      },
+      "dimensions": {
+        "detail_view": "1200x896",
+        "front_view": "1200x896"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "mv_wood1",
+      "split": "multiview",
+      "view_count": 2,
+      "raw_views": {
+        "detail_view": "dataset/raw/multiview/mv_wood1/detail.png",
+        "front_view": "dataset/raw/multiview/mv_wood1/front.png"
+      },
+      "golden_views": {
+        "detail_view": "storage/golden/mv_wood1_detail.png",
+        "front_view": "storage/golden/mv_wood1_front.png"
+      },
+      "dimensions": {
+        "detail_view": "1200x896",
+        "front_view": "1200x896"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": false
+    },
+    {
+      "product_id": "mv_wood2",
+      "split": "multiview",
+      "view_count": 4,
+      "raw_views": {
+        "back_or_label_view": "dataset/raw/multiview/mv_wood2/back.png",
+        "escalation_crop_view": "dataset/raw/multiview/mv_wood2/back_close.png",
+        "detail_view": "dataset/raw/multiview/mv_wood2/detail.png",
+        "front_view": "dataset/raw/multiview/mv_wood2/front.png"
+      },
+      "golden_views": {
+        "back_or_label_view": "storage/golden/mv_wood2_back.png",
+        "escalation_crop_view": "storage/golden/mv_wood2_back_close.png",
+        "detail_view": "storage/golden/mv_wood2_detail.png",
+        "front_view": "storage/golden/mv_wood2_front.png"
+      },
+      "dimensions": {
+        "back_or_label_view": "1200x896",
+        "escalation_crop_view": "1200x896",
+        "detail_view": "1200x896",
+        "front_view": "1200x896"
+      },
+      "low_resolution_flag": false,
+      "expect_seller_review": false
+    }
+  ]
+}
