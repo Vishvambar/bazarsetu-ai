@@ -56,10 +56,11 @@ class System2Config:
     main_gpu: int = int(os.getenv("SYSTEM2_GPU_ID", "1"))
     tensor_split: List[float] = field(default_factory=lambda: [0.0, 1.0])
     n_gpu_layers: int = -1
-    n_ctx: int = 4096
+    n_ctx: int = 3072
+    n_batch: int = 1024
     n_threads: int = int(os.getenv("SYSTEM2_N_THREADS", "4"))
     temperature: float = 0.1
-    max_tokens: int = 640
+    max_tokens: int = 420
     front_max_dim: int = 480        # 10 * 48 patches
     secondary_max_dim: int = 384    # 8 * 48 patches
     escalation_max_dim: int = 672   # 14 * 48 patches
@@ -137,7 +138,7 @@ def _resolve_json_schema_refs(node: Any, defs: Dict[str, Any]) -> Any:
 
     out: Dict[str, Any] = {}
     for k, v in node.items():
-        if k == "$defs":
+        if k in ("$defs", "title", "description", "default"):
             continue
         out[k] = _resolve_json_schema_refs(v, defs)
     return out
@@ -297,6 +298,7 @@ class System2Engine:
                 "model_path": model_path,
                 "chat_handler": self._chat_handler,
                 "n_ctx": self.cfg.n_ctx,
+                "n_batch": self.cfg.n_batch,
                 "n_threads": self.cfg.n_threads,
                 "n_gpu_layers": self.cfg.n_gpu_layers,
                 "main_gpu": self.cfg.main_gpu,

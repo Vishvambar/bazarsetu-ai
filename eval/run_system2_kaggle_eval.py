@@ -58,6 +58,17 @@ def main() -> int:
         default=str(PROJECT_ROOT / "storage" / "eval_reports" / "step4_report.json"),
         help="Path to write full evaluation JSON report.",
     )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Evaluate only the first N records (e.g., --limit 3 for quick smoke check).",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable llama.cpp timing & debug output.",
+    )
     args = parser.parse_args()
 
     golden_dir = PROJECT_ROOT / "storage" / "golden"
@@ -66,7 +77,7 @@ def main() -> int:
         if archive:
             restore_golden_zip(archive, golden_dir)
 
-    cfg = System2Config()
+    cfg = System2Config(verbose=args.verbose)
     if args.repo_id:
         cfg.repo_id = args.repo_id
     if args.model_file:
@@ -78,7 +89,7 @@ def main() -> int:
     engine = System2Engine(config=cfg)
 
     logger.info("Running evaluation across %s...", args.dataset)
-    report = evaluate_pipeline(args.dataset, engine.predict)
+    report = evaluate_pipeline(args.dataset, engine.predict, limit=args.limit, progress=True)
 
     report_path = Path(args.report_out)
     report_path.parent.mkdir(parents=True, exist_ok=True)

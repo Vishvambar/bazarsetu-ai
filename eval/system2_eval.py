@@ -51,8 +51,12 @@ def load_golden_records(dataset_path: str | Path) -> List[Dict[str, Any]]:
 def evaluate_pipeline(
     dataset_path: str | Path,
     predict_fn: Callable[[str, Dict[str, str]], Dict[str, Any]],
+    limit: int | None = None,
+    progress: bool = False,
 ) -> Dict[str, Any]:
     records = load_golden_records(dataset_path)
+    if limit is not None and limit > 0:
+        records = records[:limit]
     if not records:
         raise ValueError(f"No valid records found in {dataset_path}")
 
@@ -76,7 +80,8 @@ def evaluate_pipeline(
     latencies_ms: List[float] = []
     failures: List[str] = []
 
-    for row in records:
+    total_records = len(records)
+    for idx, row in enumerate(records, start=1):
         pid = row["product_id"]
         gt = row["ground_truth"]
 
@@ -84,16 +89,22 @@ def evaluate_pipeline(
         try:
             raw_out = predict_fn(pid, row["views"])
         except Exception as exc:
-            latencies_ms.append((time.perf_counter() - t0) * 1000.0)
+            elapsed_ms = (time.perf_counter() - t0) * 1000.0
+            latencies_ms.append(elapsed_ms)
             failures.append(f"{pid}: predictor raised exception -> {exc}")
+            if progress:
+                print(f"[{idx:2d}/{total_records}] {pid:15s} | {elapsed_ms/1000:.2f}s | ERROR: {exc}", flush=True)
             continue
-        latencies_ms.append((time.perf_counter() - t0) * 1000.0)
+        elapsed_ms = (time.perf_counter() - t0) * 1000.0
+        latencies_ms.append(elapsed_ms)
 
         try:
             pred = ProductIntelligenceOutput.model_validate(raw_out)
             counts["schema_valid"] += 1
         except Exception as exc:
             failures.append(f"{pid}: schema validation failed -> {exc}")
+            if progress:
+                print(f"[{idx:2d}/{total_records}] {pid:15s} | {elapsed_ms/1000:.2f}s | SCHEMA FAIL: {exc}", flush=True)
             continue
 
         if pred.ondc_taxonomy.domain_code.value == gt["domain_code"]:
@@ -158,6 +169,15 @@ def evaluate_pipeline(
         if hallucinated:
             counts["seal_hallucinations"] += 1
             failures.append(f"{pid}: hallucinated seals {sorted(hallucinated)}")
+
+        if progress:
+            print(
+                f"[{idx:2d}/{total_records}] {pid:15s} | {elapsed_ms/1000:5.2f}s | "
+                f"domain={pred.ondc_taxonomy.domain_code.value} | "
+                f"color={pred.color_profile.primary_color.standard_family} | "
+                f"seals={sorted(pred_seals)} | review={flagged_review}",
+                flush=True,
+            )
 
     n = len(records)
     report: Dict[str, Any] = {
