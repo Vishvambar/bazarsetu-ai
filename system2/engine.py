@@ -236,6 +236,24 @@ class System2Engine:
         mmproj_path = hf_hub_download(repo_id=self.cfg.repo_id, filename=self.cfg.mmproj_filename)
         return model_path, mmproj_path
 
+    @staticmethod
+    def ensure_ggml_backends_loaded() -> None:
+        """
+        Load dynamic ggml backend plugins (e.g., libggml-cuda.so in llama-cpp-python >= 0.4)
+        before checking llama_supports_gpu_offload() or initializing mmproj.
+        """
+        import ctypes
+        import llama_cpp
+
+        try:
+            from llama_cpp._ggml import ggml_backend_load_all_from_path
+        except ImportError:
+            return
+        llama_cpp.llama_backend_init()
+        lib_dir = Path(llama_cpp.__file__).resolve().parent / "lib"
+        if lib_dir.exists():
+            ggml_backend_load_all_from_path(ctypes.c_char_p(str(lib_dir).encode("utf-8")))
+
     def load(self) -> None:
         if self._llm is not None or self._completion_fn is not None:
             return
@@ -249,6 +267,7 @@ class System2Engine:
             except ImportError:
                 from llama_cpp.llama_chat_format import Gemma4ChatHandler
 
+            self.ensure_ggml_backends_loaded()
             if not llama_cpp.llama_supports_gpu_offload():
                 raise RuntimeError(
                     "llama-cpp-python was compiled WITHOUT CUDA GPU offload! "

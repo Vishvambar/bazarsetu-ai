@@ -14,7 +14,24 @@ pip install -q --upgrade pip
 pip install -q einops timm scikit-image opencv-python-headless pydantic fastapi uvicorn python-multipart huggingface_hub
 
 echo "=== Ensuring llama-cpp-python with CUDA Support (Prebuilt Wheel) ==="
-if ! python3 -c "import llama_cpp; from llama_cpp.llama_chat_format import Gemma4ChatHandler; assert llama_cpp.llama_supports_gpu_offload()" 2>/dev/null; then
+if ! python3 -c '
+import ctypes
+from pathlib import Path
+import llama_cpp
+try:
+    from llama_cpp._ggml import ggml_backend_load_all_from_path
+    llama_cpp.llama_backend_init()
+    lib_dir = Path(llama_cpp.__file__).resolve().parent / "lib"
+    if lib_dir.exists():
+        ggml_backend_load_all_from_path(ctypes.c_char_p(str(lib_dir).encode("utf-8")))
+except ImportError:
+    pass
+try:
+    from llama_cpp.llama_multimodal import Gemma4ChatHandler
+except ImportError:
+    from llama_cpp.llama_chat_format import Gemma4ChatHandler
+assert llama_cpp.llama_supports_gpu_offload()
+' 2>/dev/null; then
     WHEEL_URL=$(python3 -c '
 import json, sys, urllib.request, subprocess, re
 
@@ -71,8 +88,18 @@ fi
 
 echo "=== Verifying Gemma4ChatHandler, GPU Offload & CUDA Devices ==="
 python3 -c '
+import ctypes
+from pathlib import Path
 import torch
 import llama_cpp
+try:
+    from llama_cpp._ggml import ggml_backend_load_all_from_path
+    llama_cpp.llama_backend_init()
+    lib_dir = Path(llama_cpp.__file__).resolve().parent / "lib"
+    if lib_dir.exists():
+        ggml_backend_load_all_from_path(ctypes.c_char_p(str(lib_dir).encode("utf-8")))
+except ImportError:
+    pass
 try:
     from llama_cpp.llama_multimodal import Gemma4ChatHandler
 except ImportError:
