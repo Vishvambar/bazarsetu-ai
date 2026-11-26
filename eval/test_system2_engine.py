@@ -152,6 +152,7 @@ class System2EngineTests(unittest.TestCase):
         cfg = System2Config()
         self.assertEqual(cfg.main_gpu, 1)
         self.assertEqual(cfg.tensor_split, [0.0, 1.0])
+        self.assertFalse(cfg.use_tools)
         self.assertEqual(cfg.front_max_dim % 48, 0)
         self.assertEqual(cfg.secondary_max_dim % 48, 0)
 
@@ -163,14 +164,31 @@ class System2EngineTests(unittest.TestCase):
                 "choices": [
                     {
                         "message": {
-                            "tool_calls": [
+                            "content": json.dumps(
                                 {
-                                    "function": {
-                                        "name": "submit_product_intelligence",
-                                        "arguments": json.dumps(_sample_valid_payload("mv_metal1")),
-                                    }
+                                    "product": "Hammered Copper Kalash",
+                                    "title": "Hand-Hammered Tambat Copper Kalash",
+                                    "desc": "Hand-hammered copper kalash crafted by artisans for puja.",
+                                    "comp": "single_item",
+                                    "scale": "tabletop",
+                                    "domain": "ONDC:RET16",
+                                    "cat": "Metalware",
+                                    "subcat": "Copper Kalash",
+                                    "color": "Burnished Copper",
+                                    "color_fam": "Copper",  # tests color_fam alias coercion -> Orange
+                                    "finish": "polished",   # tests finish alias coercion -> glossy
+                                    "mat": "Copper",
+                                    "mat_fam": "Metal",
+                                    "mat_conf": 0.94,
+                                    "pat": ["geometric"],
+                                    "craft": ["hand_hammered_mathar"],
+                                    "seals": [],
+                                    "text": False,
+                                    "crop": False,
+                                    "conf": 0.94,
+                                    "review": [],
                                 }
-                            ]
+                            )
                         }
                     }
                 ]
@@ -188,12 +206,15 @@ class System2EngineTests(unittest.TestCase):
                 {"front_view": str(f_path), "detail_view": str(d_path)},
             )
             self.assertEqual(res["ondc_taxonomy"]["domain_code"], "ONDC:RET16")
+            self.assertEqual(res["color_profile"]["primary_color"]["standard_family"], "Orange")
+            self.assertEqual(res["color_profile"]["surface_finish"], "glossy")
             self.assertEqual(res["audit_telemetry"]["views_processed"], ["front_view", "detail_view"])
             user_parts = captured["messages"][1]["content"]
             img_urls = [p["image_url"]["url"] for p in user_parts if p["type"] == "image_url"]
             self.assertEqual(len(img_urls), 2)
             self.assertTrue(all(u.startswith("data:image/jpeg;base64,") for u in img_urls))
-            self.assertEqual(captured["tool_choice"]["function"]["name"], "submit_product_intelligence")
+            self.assertNotIn("tools", captured)
+            self.assertNotIn("tool_choice", captured)
 
     def test_compact_wire_normalization_matches_locked_contract(self) -> None:
         compact = {

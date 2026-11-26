@@ -21,7 +21,14 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from PIL import Image
 
-from system2.schemas import ProductIntelligenceOutput
+from system2.schemas import (
+    CompositionType,
+    ONDCDomainCode,
+    PatternCategory,
+    PhysicalScale,
+    ProductIntelligenceOutput,
+    SurfaceFinish,
+)
 
 logger = logging.getLogger("BazarSetu.System2Engine")
 
@@ -29,22 +36,26 @@ PATCH_SIZE = 48  # Gemma 4 visual patch size (48x48 pixels)
 VIEW_ORDER = ("front_view", "detail_view", "back_or_label_view", "escalation_crop_view")
 
 SYSTEM2_PROMPT = """You are BazarSetu's System 2 Visual Catalog Intelligence Core for Indian handicrafts and ONDC retail.
-Inspect the provided clean white-background studio product image(s) (front, optional detail, optional back/label) and emit an English-only structured catalog record by calling the `submit_product_intelligence` tool.
+Inspect all views of the white-background product image(s) and output ONLY ONE single-line compact JSON object in English (no markdown fences, no commentary, omit empty optional lists).
 
-STRICT RULES:
-1. ONDC Domain Codes: Use "ONDC:RET16" for Pottery, Metalware, Woodcraft, Home Decor; "ONDC:RET12" for Sarees, Handloom Fabrics, Ethnic Apparel, Footwear; "ONDC:RET10" for Packaged Foods/Pickles.
-2. Concise English-Only Output (compact tool JSON, omit empty optional arrays):
-   - Output English only (never generate Hindi or non-English translations).
-   - catalog_title_en: 40-70 chars.
-   - description_en: 1 short sentence, 10-18 words.
-   - Keep `structural_components`, `occasions`, `secondary_colors`, `set_contents`, `visible_text_snippets`, and `needs_seller_review` empty `[]` (or omit them) unless clearly populated by visual evidence.
-3. Anti-Hallucination & Seals:
-   - ONLY list a seal in certification_seals ("Silk Mark", "Handloom Mark", "GI Tag", "FSSAI", "BIS Hallmark") if that exact logo or text is clearly visible in the images. Otherwise return [].
-   - If visible packaging text or a seal is too small/blurry to read reliably, set text_legibility_confidence < 0.75 and needs_highres_label_crop = true.
-4. Uncertainty & Seller Review:
-   - If material or craft purity is visually ambiguous (e.g., brass vs gold-plated copper, handloom silk vs polyester blend, mixed multi-item bundle), set that material's confidence < 0.75 and add its dot-path (e.g., "materials[0].material_name") to audit_telemetry.needs_seller_review.
-   - For unambiguous clear craft items, leave needs_seller_review empty [].
-5. Craft techniques: use canonical snake_case tags when clearly visible: hand_hammered_mathar, lost_wax_cast, engraved, embossed, hand_painted, glazed, hand_carved, pit_fired, zari_brocade, embroidery, block_print, warli_painted."""
+Allowed enum values (use EXACT strings):
+- domain: "ONDC:RET16" (Pottery, Metalware, Woodcraft, Stone/Home Decor) | "ONDC:RET12" (Sarees, Handloom Fabrics, Apparel, Footwear) | "ONDC:RET10" (Packaged Foods/Pickles)
+- comp: "single_item" | "matched_set" | "multipack" | "product_with_packaging"
+- scale: "pocket_wearable" | "handheld" | "tabletop" | "floor_standing" | "draped_fabric"
+- color_fam: "Red"|"Blue"|"Green"|"Yellow"|"Orange"|"Pink"|"Purple"|"Grey"|"Black"|"White"|"Brown"|"Gold"|"Silver"|"Beige"|"Multicolor" (use Gold for brass/bronze, Silver for steel/pewter/silver, Orange for copper/terracotta)
+- finish: "matte"|"glossy"|"metallic"|"oxidized_antique"|"raw_natural"|"woven_textile"|"hammered_mathar"|"glazed"
+- mat_fam: "Metal"|"Textile"|"Wood"|"Clay_Ceramic"|"Leather"|"Stone"|"Glass"|"Natural_Fiber"|"Paper_Bamboo"
+- pat: subset of ["solid","geometric","floral","traditional_motif","warli_tribal","striped","checked","abstract"]
+- craft: canonical snake_case when clearly visible: ["hand_hammered_mathar","lost_wax_cast","engraved","embossed","hand_painted","glazed","hand_carved","pit_fired","zari_brocade","embroidery","block_print","warli_painted"]
+- seals: ONLY clearly legible logos/text from ["Silk Mark","Handloom Mark","GI Tag","India Handmade","FSSAI","BIS Hallmark"], else []
+- text: true if visible packaging/tag text/seal exists, else false; legib: 0.0-1.0; crop: true ONLY if visible text/seal is too small/blurry to read
+- review: ["materials[0].material_name"] if purity/material/craft is genuinely ambiguous (set mat_conf < 0.75), else []
+
+Example:
+{"product":"Brass Kalash","title":"Hand-Hammered Brass Ceremonial Kalash","desc":"Traditional hand-hammered brass kalash pot crafted by artisans for puja decor.","comp":"single_item","scale":"tabletop","domain":"ONDC:RET16","cat":"Metalware","subcat":"Brass Kalash","color":"Antique Brass","color_fam":"Gold","finish":"hammered_mathar","mat":"Brass","mat_fam":"Metal","mat_conf":0.95,"pat":["solid"],"craft":["hand_hammered_mathar"],"seals":[],"text":false,"legib":1.0,"crop":false,"conf":0.94,"review":[],"kw":["brass kalash","puja pot"]}"""
+
+LEGACY_TOOLS_PROMPT = """You are BazarSetu's System 2 Visual Catalog Intelligence Core for Indian handicrafts and ONDC retail.
+Inspect the provided clean white-background studio product image(s) and emit an English-only structured catalog record by calling `submit_product_intelligence`."""
 
 
 @dataclass
@@ -60,11 +71,12 @@ class System2Config:
     n_batch: int = 1024
     n_threads: int = int(os.getenv("SYSTEM2_N_THREADS", "4"))
     temperature: float = 0.1
-    max_tokens: int = 768
+    max_tokens: int = 380
     front_max_dim: int = 480        # 10 * 48 patches
     secondary_max_dim: int = 384    # 8 * 48 patches
     escalation_max_dim: int = 672   # 14 * 48 patches
     enable_thinking: bool = False
+    use_tools: bool = False         # Disabled by default: tools GBNF drops T4 speed 2.1x on 262k vocab
     verbose: bool = False
 
 
@@ -179,6 +191,56 @@ def _loads_relaxed_json(text: str) -> Dict[str, Any]:
         return json.loads(repaired)
 
 
+def _coerce_domain(raw_val: Any) -> str:
+    val = str(raw_val or "ONDC:RET16").strip().upper()
+    if val.startswith("RET"):
+        val = f"ONDC:{val}"
+    valid = {e.value for e in ONDCDomainCode}
+    return val if val in valid else ONDCDomainCode.HOME_DECOR.value
+
+
+def _coerce_enum(raw_val: Any, enum_cls: Any, aliases: Dict[str, str], default: str) -> str:
+    val = str(raw_val or default).strip().lower().replace("-", "_").replace(" ", "_")
+    val = aliases.get(val, val)
+    valid = {e.value for e in enum_cls}
+    return val if val in valid else default
+
+
+def _coerce_color_family(raw_val: Any) -> str:
+    val = str(raw_val or "Brown").strip()
+    low = val.lower()
+    alias_map = {
+        "copper": "Orange",
+        "terracotta": "Orange",
+        "rust": "Orange",
+        "brass": "Gold",
+        "bronze": "Gold",
+        "golden": "Gold",
+        "pewter": "Silver",
+        "steel": "Silver",
+        "metallic": "Silver",
+        "ivory": "White",
+        "cream": "Beige",
+        "off_white": "White",
+        "off-white": "White",
+        "charcoal": "Black",
+        "gray": "Grey",
+        "multi": "Multicolor",
+        "multicolour": "Multicolor",
+    }
+    if low in alias_map:
+        return alias_map[low]
+    return val.title()
+
+
+def _clamp_conf(raw_val: Any, default: float = 0.9) -> float:
+    try:
+        v = float(raw_val)
+    except (TypeError, ValueError):
+        v = default
+    return max(0.0, min(1.0, v))
+
+
 def normalize_wire_payload(
     raw: Dict[str, Any],
     product_id: str,
@@ -187,7 +249,7 @@ def normalize_wire_payload(
     """
     Normalize either full ProductIntelligenceOutput dicts or compact flat wire JSON
     (used to keep Gemma 4 completion tokens <= 180 and eliminate schema GBNF latency)
-    into the locked ProductIntelligenceOutput schema.
+    into the locked ProductIntelligenceOutput schema with defensive enum coercion.
     """
     if "product_identity" in raw and "ondc_taxonomy" in raw:
         out = dict(raw)
@@ -199,7 +261,7 @@ def normalize_wire_payload(
         return out
 
     subcat = str(raw.get("subcat") or raw.get("product") or "Handcrafted Item")
-    conf_default = float(raw.get("conf", 0.9))
+    conf_default = _clamp_conf(raw.get("conf"), 0.9)
 
     raw_mats = raw.get("mats")
     materials: List[Dict[str, Any]] = []
@@ -212,7 +274,7 @@ def normalize_wire_payload(
                     "material_name": item.get("material_name") or item.get("name") or item.get("mat") or "Unknown",
                     "material_family": item.get("material_family") or item.get("fam") or item.get("mat_fam") or "Metal",
                     "location": item.get("location") or item.get("loc") or "main_body",
-                    "confidence": float(item.get("confidence", item.get("conf", conf_default))),
+                    "confidence": _clamp_conf(item.get("confidence", item.get("conf", conf_default)), conf_default),
                 }
             )
     if not materials:
@@ -221,21 +283,105 @@ def normalize_wire_payload(
                 "material_name": str(raw.get("mat") or "Handcrafted Material"),
                 "material_family": str(raw.get("mat_fam") or "Metal"),
                 "location": str(raw.get("mat_loc") or "main_body"),
-                "confidence": float(raw.get("mat_conf", conf_default)),
+                "confidence": _clamp_conf(raw.get("mat_conf", conf_default), conf_default),
             }
         )
 
     sec_colors: List[Dict[str, str]] = []
-    for c in raw.get("sec_colors") or []:
+    for c in (raw.get("sec_colors") or [])[:2]:
         if isinstance(c, dict) and c.get("name") and c.get("standard_family"):
-            sec_colors.append({"name": c["name"], "standard_family": c["standard_family"]})
+            sec_colors.append(
+                {"name": str(c["name"]), "standard_family": _coerce_color_family(c["standard_family"])}
+            )
         elif isinstance(c, dict) and c.get("c") and c.get("f"):
-            sec_colors.append({"name": c["c"], "standard_family": c["f"]})
+            sec_colors.append({"name": str(c["c"]), "standard_family": _coerce_color_family(c["f"])})
 
-    pat_cats = list(raw.get("pat") or [])
-    seals = list(raw.get("seals") or [])
-    snippets = list(raw.get("snippets") or [])
+    pat_aliases = {
+        "floral_motif": "floral",
+        "tribal": "warli_tribal",
+        "warli": "warli_tribal",
+        "stripes": "striped",
+        "checkered": "checked",
+        "checks": "checked",
+        "plain": "solid",
+        "none": "solid",
+        "traditional": "traditional_motif",
+        "ethnic": "traditional_motif",
+    }
+    valid_pats = {e.value for e in PatternCategory}
+    pat_cats: List[str] = []
+    raw_pat = raw.get("pat") or []
+    if isinstance(raw_pat, str):
+        raw_pat = [raw_pat]
+    for p in raw_pat:
+        norm_p = pat_aliases.get(str(p).strip().lower().replace("-", "_").replace(" ", "_"), str(p).strip().lower().replace("-", "_").replace(" ", "_"))
+        if norm_p in valid_pats and norm_p not in pat_cats:
+            pat_cats.append(norm_p)
+
+    seals = [str(s).strip() for s in (raw.get("seals") or []) if s and str(s).strip().lower() != "none"]
+    snippets = [str(s).strip() for s in (raw.get("snippets") or [])[:3] if s]
     has_text = bool(raw.get("text", bool(seals or snippets or raw.get("brand"))))
+
+    raw_review = raw.get("review")
+    if isinstance(raw_review, bool):
+        review_list = ["materials[0].material_name"] if raw_review else []
+    elif isinstance(raw_review, str):
+        review_list = [raw_review] if raw_review.strip() else []
+    elif isinstance(raw_review, list):
+        review_list = [str(x) for x in raw_review if x]
+    else:
+        review_list = []
+
+    comp_val = _coerce_enum(
+        raw.get("comp"),
+        CompositionType,
+        {
+            "single": "single_item",
+            "set": "matched_set",
+            "pair": "matched_set",
+            "combo": "multipack",
+            "pack": "multipack",
+            "packaged": "product_with_packaging",
+        },
+        CompositionType.SINGLE_ITEM.value,
+    )
+    scale_val = _coerce_enum(
+        raw.get("scale"),
+        PhysicalScale,
+        {
+            "pocket": "pocket_wearable",
+            "wearable": "pocket_wearable",
+            "small": "handheld",
+            "medium": "tabletop",
+            "large": "floor_standing",
+            "draped": "draped_fabric",
+            "fabric": "draped_fabric",
+            "apparel": "draped_fabric",
+        },
+        PhysicalScale.TABLETOP.value,
+    )
+    finish_val = _coerce_enum(
+        raw.get("finish"),
+        SurfaceFinish,
+        {
+            "polished": "glossy",
+            "shiny": "glossy",
+            "oxidized": "oxidized_antique",
+            "antique": "oxidized_antique",
+            "aged": "oxidized_antique",
+            "hammered": "hammered_mathar",
+            "mathar": "hammered_mathar",
+            "hand_hammered": "hammered_mathar",
+            "woven": "woven_textile",
+            "fabric": "woven_textile",
+            "textile": "woven_textile",
+            "natural": "raw_natural",
+            "raw": "raw_natural",
+            "terracotta": "raw_natural",
+            "rustic": "raw_natural",
+        },
+        SurfaceFinish.MATTE.value,
+    )
 
     return {
         "product_id": product_id,
@@ -243,31 +389,31 @@ def normalize_wire_payload(
             "apparent_product": str(raw.get("product") or subcat),
             "catalog_title_en": str(raw.get("title") or f"Handcrafted {subcat}"),
             "description_en": str(raw.get("desc") or f"Handcrafted {subcat.lower()} artisan product."),
-            "composition_type": raw.get("comp") or "single_item",
-            "set_contents": list(raw.get("set") or []),
-            "physical_scale": raw.get("scale") or "tabletop",
+            "composition_type": comp_val,
+            "set_contents": [str(x) for x in (raw.get("set") or [])],
+            "physical_scale": scale_val,
         },
         "ondc_taxonomy": {
-            "domain_code": raw.get("domain") or "ONDC:RET16",
+            "domain_code": _coerce_domain(raw.get("domain")),
             "category": str(raw.get("cat") or "Home Decor"),
             "subcategory": subcat,
             "generic_name": str(raw.get("gen") or subcat),
-            "confidence": float(raw.get("dom_conf", conf_default)),
+            "confidence": _clamp_conf(raw.get("dom_conf", conf_default), conf_default),
         },
         "color_profile": {
             "primary_color": {
                 "name": str(raw.get("color") or raw.get("color_fam") or "Neutral"),
-                "standard_family": str(raw.get("color_fam") or "Brown"),
+                "standard_family": _coerce_color_family(raw.get("color_fam")),
             },
             "secondary_colors": sec_colors,
-            "surface_finish": raw.get("finish") or "matte",
+            "surface_finish": finish_val,
             "color_distribution": str(raw.get("dist") or "solid"),
         },
         "materials": materials,
         "pattern_and_craft": {
-            "has_pattern": bool(raw.get("has_pat", bool(pat_cats))),
+            "has_pattern": bool(raw.get("has_pat", bool(pat_cats and pat_cats != ["solid"]))),
             "pattern_categories": pat_cats,
-            "craft_techniques": list(raw.get("craft") or []),
+            "craft_techniques": [str(c).strip().lower() for c in (raw.get("craft") or []) if c],
             "motif_description": raw.get("motif"),
         },
         "structural_components": list(raw.get("parts") or []),
@@ -276,18 +422,18 @@ def normalize_wire_payload(
             "brand_or_artisan_mark": raw.get("brand"),
             "certification_seals": seals,
             "visible_text_snippets": snippets,
-            "text_legibility_confidence": float(raw.get("legib", 1.0)),
+            "text_legibility_confidence": _clamp_conf(raw.get("legib", 1.0), 1.0),
             "needs_highres_label_crop": bool(raw.get("crop", False)),
         },
         "marketplace_enrichment": {
             "target_audience": str(raw.get("aud") or "home_utility"),
-            "occasions": list(raw.get("occ") or []),
-            "search_keywords": list(raw.get("kw") or []),
+            "occasions": [str(x) for x in (raw.get("occ") or [])[:3]],
+            "search_keywords": [str(x) for x in (raw.get("kw") or [])[:6]],
         },
         "audit_telemetry": {
             "views_processed": views_used,
             "overall_confidence": conf_default,
-            "needs_seller_review": list(raw.get("review") or []),
+            "needs_seller_review": review_list,
         },
     }
 
@@ -481,18 +627,17 @@ class System2Engine:
         if not views_used:
             raise ValueError(f"No views provided for product_id={product_id}")
 
-        content_parts.append(
-            {
-                "type": "text",
-                "text": (
-                    f"Analyze product_id='{product_id}' across views {views_used}. "
-                    "Set audit_telemetry.views_processed accurately and call `submit_product_intelligence`."
-                ),
-            }
+        sys_prompt = LEGACY_TOOLS_PROMPT if self.cfg.use_tools else SYSTEM2_PROMPT
+        tail_instruction = (
+            f"Analyze product_id='{product_id}' across views {views_used}. "
+            "Call `submit_product_intelligence`."
+            if self.cfg.use_tools
+            else f"Analyze views {views_used} for product_id='{product_id}' and output ONLY the single-line compact JSON object."
         )
+        content_parts.append({"type": "text", "text": tail_instruction})
 
         messages = [
-            {"role": "system", "content": SYSTEM2_PROMPT},
+            {"role": "system", "content": sys_prompt},
             {"role": "user", "content": content_parts},
         ]
         return messages, views_used
@@ -509,27 +654,47 @@ class System2Engine:
 
         messages, views_used = self.build_messages(product_id, views, escalation_mode=escalation_mode)
 
-        with self._lock:
-            fn = self._completion_fn or self._llm.create_chat_completion
-            kwargs: Dict[str, Any] = {
-                "messages": messages,
-                "tools": [self._tool_def],
-                "tool_choice": {
-                    "type": "function",
-                    "function": {"name": "submit_product_intelligence"},
-                },
-                "temperature": self.cfg.temperature,
-                "max_tokens": self.cfg.max_tokens,
-            }
-            sig = inspect.signature(fn).parameters
-            if "chat_template_kwargs" in sig:
-                kwargs["chat_template_kwargs"] = {"enable_thinking": self.cfg.enable_thinking}
+        last_err: Optional[Exception] = None
+        for attempt in range(2):
+            attempt_messages = messages
+            if attempt == 1 and last_err is not None:
+                attempt_messages = messages + [
+                    {
+                        "role": "user",
+                        "content": (
+                            f"Previous JSON failed ({last_err}). "
+                            "Reply with ONLY one valid single-line JSON object matching all keys."
+                        ),
+                    }
+                ]
 
-            response = fn(**kwargs)
+            with self._lock:
+                fn = self._completion_fn or self._llm.create_chat_completion
+                kwargs: Dict[str, Any] = {
+                    "messages": attempt_messages,
+                    "temperature": 0.0 if attempt == 1 else self.cfg.temperature,
+                    "max_tokens": 768 if self.cfg.use_tools else self.cfg.max_tokens,
+                }
+                if self.cfg.use_tools:
+                    kwargs["tools"] = [self._tool_def]
+                    kwargs["tool_choice"] = {
+                        "type": "function",
+                        "function": {"name": "submit_product_intelligence"},
+                    }
+                sig = inspect.signature(fn).parameters
+                if "chat_template_kwargs" in sig:
+                    kwargs["chat_template_kwargs"] = {"enable_thinking": self.cfg.enable_thinking}
 
-        payload = extract_tool_or_json_payload(response)
-        normalized = normalize_wire_payload(payload, product_id=product_id, views_used=views_used)
+                response = fn(**kwargs)
 
-        validated = ProductIntelligenceOutput.model_validate(normalized)
-        return validated.model_dump(mode="json")
+            try:
+                payload = extract_tool_or_json_payload(response)
+                normalized = normalize_wire_payload(payload, product_id=product_id, views_used=views_used)
+                validated = ProductIntelligenceOutput.model_validate(normalized)
+                return validated.model_dump(mode="json")
+            except Exception as exc:
+                last_err = exc
+                logger.warning("Attempt %d validation failed for %s: %s", attempt + 1, product_id, exc)
+
+        raise RuntimeError(f"System2Engine failed for {product_id} after 2 attempts: {last_err}")
 
