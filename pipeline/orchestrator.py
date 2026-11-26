@@ -54,28 +54,35 @@ class PipelineExecutionResult:
     boundary_f1: float = 0.0
 
 class System1Pipeline:
-    def __init__(self, config: Optional[PipelineConfig] = None):
+    def __init__(
+        self,
+        config: Optional[PipelineConfig] = None,
+        gpu_ids: Optional[List[int]] = None,
+    ):
         self.cfg = config or CONFIG
+        self.gpu_ids = (
+            gpu_ids
+            if gpu_ids is not None
+            else [self.cfg.models.gpu_primary]
+        )
         self.master_manager = ProductMasterManager(self.cfg.storage_root)
-        
+
         # Stages
         self.stage_a = IngestionStage(self.master_manager)
         self.stage_b = QualityGateStage(self.cfg.quality)
         self.stage_f = PhotographicPolishStage(self.cfg.polish)
         self.stage_g = MarketplaceRenderingStage(self.cfg.rendering)
         self.stage_h = FidelityVerificationStage(self.cfg.verification)
-        
-        # Segmentation workers for dual GPU
+
+        # Segmentation workers pinned to allocated GPUs (default: cuda:0 only, leaving cuda:1 for System 2)
         self.segmenters: Dict[int, BiRefNetSegmenter] = {}
         self.sam2_refiners: Dict[int, SAM2InteractiveRefiner] = {}
         self._init_gpu_workers()
 
     def _init_gpu_workers(self):
-        # Warmup and initialize primary and secondary GPU workers
         DEVICE_MGR.warmup()
-        num_workers = max(1, DEVICE_MGR.device_count)
-        for w_idx in range(num_workers):
-            dev = DEVICE_MGR.get_device(w_idx)
+        for w_idx, gpu_idx in enumerate(self.gpu_ids):
+            dev = DEVICE_MGR.get_device(gpu_idx)
             self.segmenters[w_idx] = BiRefNetSegmenter(device=dev)
             self.sam2_refiners[w_idx] = SAM2InteractiveRefiner(device=dev)
 
@@ -239,7 +246,7 @@ class System1Pipeline:
         product_id = product_id or f"prod_{int(time.time())}"
         results: List[PipelineExecutionResult] = []
         
-        num_workers = max(1, DEVICE_MGR.device_count)
+        num_workers = max(1, len(self.segmenters))
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
             future_to_idx = {
                 executor.submit(self.process_single, path, product_id, idx, force): idx
