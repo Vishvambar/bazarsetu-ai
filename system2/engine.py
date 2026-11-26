@@ -244,12 +244,15 @@ class System2Engine:
                 return
             import llama_cpp
             from llama_cpp import Llama
-            from llama_cpp.llama_chat_format import Gemma4ChatHandler
+            try:
+                from llama_cpp.llama_multimodal import Gemma4ChatHandler
+            except ImportError:
+                from llama_cpp.llama_chat_format import Gemma4ChatHandler
 
             if not llama_cpp.llama_supports_gpu_offload():
                 raise RuntimeError(
                     "llama-cpp-python was compiled WITHOUT CUDA GPU offload! "
-                    "Re-run kaggle/setup_kaggle.sh to build with GGML_CUDA=on (-DCMAKE_CUDA_ARCHITECTURES=75)."
+                    "Re-run kaggle/setup_kaggle.sh to install the prebuilt CUDA wheel."
                 )
 
             model_path, mmproj_path = self._resolve_model_paths()
@@ -257,12 +260,16 @@ class System2Engine:
             # Inspect Gemma4ChatHandler signature cleanly across llama-cpp-python versions
             handler_sig = inspect.signature(Gemma4ChatHandler.__init__).parameters
             handler_kwargs: Dict[str, Any] = {"verbose": self.cfg.verbose}
-            if "clip_model_path" in handler_sig:
-                handler_kwargs["clip_model_path"] = mmproj_path
-            elif "mmproj_path" in handler_sig:
+            if "mmproj_path" in handler_sig:
                 handler_kwargs["mmproj_path"] = mmproj_path
+            elif "clip_model_path" in handler_sig:
+                handler_kwargs["clip_model_path"] = mmproj_path
             if "enable_thinking" in handler_sig:
                 handler_kwargs["enable_thinking"] = self.cfg.enable_thinking
+            if "flash_attn" in handler_sig:
+                handler_kwargs["flash_attn"] = False
+            if "use_gpu" in handler_sig:
+                handler_kwargs["use_gpu"] = True
 
             self._chat_handler = Gemma4ChatHandler(**handler_kwargs)
 
