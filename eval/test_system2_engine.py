@@ -26,7 +26,9 @@ from system2.engine import (
     build_product_intelligence_tool,
     compute_patch_aligned_size,
     extract_tool_or_json_payload,
+    normalize_wire_payload,
 )
+from system2.schemas import ProductIntelligenceOutput
 
 
 def _sample_valid_payload(pid: str = "mv_metal1") -> Dict[str, Any]:
@@ -192,6 +194,39 @@ class System2EngineTests(unittest.TestCase):
             self.assertEqual(len(img_urls), 2)
             self.assertTrue(all(u.startswith("data:image/jpeg;base64,") for u in img_urls))
             self.assertEqual(captured["tool_choice"]["function"]["name"], "submit_product_intelligence")
+
+    def test_compact_wire_normalization_matches_locked_contract(self) -> None:
+        compact = {
+            "product": "Engraved Brass Tumbler",
+            "title": "Traditional Engraved Brass Water Tumbler",
+            "desc": "Handcrafted brass tumbler featuring fine traditional floral engravings.",
+            "comp": "single_item",
+            "scale": "handheld",
+            "domain": "ONDC:RET16",
+            "cat": "Metalware",
+            "subcat": "Carved Metal Tumbler",
+            "dom_conf": 0.94,
+            "color": "Antique Silver-Brass",
+            "color_fam": "Silver",
+            "finish": "oxidized_antique",
+            "mat": "Brass",
+            "mat_fam": "Metal",
+            "mat_conf": 0.92,
+            "pat": ["traditional_motif"],
+            "craft": ["engraved"],
+            "seals": [],
+            "text": False,
+            "crop": False,
+            "conf": 0.92,
+            "review": [],
+            "kw": ["brass tumbler", "engraved mug"],
+        }
+        hydrated = normalize_wire_payload(compact, product_id="metalware1", views_used=["front_view"])
+        validated = ProductIntelligenceOutput.model_validate(hydrated)
+        self.assertEqual(validated.ondc_taxonomy.domain_code.value, "ONDC:RET16")
+        self.assertEqual(validated.materials[0].material_family, "Metal")
+        self.assertEqual(validated.audit_telemetry.views_processed, ["front_view"])
+        self.assertEqual(validated.pattern_and_craft.craft_techniques, ["engraved"])
 
 
 if __name__ == "__main__":

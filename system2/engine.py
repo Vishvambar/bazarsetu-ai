@@ -170,6 +170,128 @@ def _strip_thought_and_fences(raw_text: str) -> str:
     return cleaned.strip()
 
 
+def _loads_relaxed_json(text: str) -> Dict[str, Any]:
+    """Parse JSON after stripping minor trailing commas if needed."""
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        repaired = re.sub(r",(\s*[}\]])", r"\1", text)
+        return json.loads(repaired)
+
+
+def normalize_wire_payload(
+    raw: Dict[str, Any],
+    product_id: str,
+    views_used: List[str],
+) -> Dict[str, Any]:
+    """
+    Normalize either full ProductIntelligenceOutput dicts or compact flat wire JSON
+    (used to keep Gemma 4 completion tokens <= 180 and eliminate schema GBNF latency)
+    into the locked ProductIntelligenceOutput schema.
+    """
+    if "product_identity" in raw and "ondc_taxonomy" in raw:
+        out = dict(raw)
+        out["product_id"] = product_id
+        telemetry = dict(out.get("audit_telemetry") or {})
+        if not telemetry.get("views_processed"):
+            telemetry["views_processed"] = views_used
+        out["audit_telemetry"] = telemetry
+        return out
+
+    subcat = str(raw.get("subcat") or raw.get("product") or "Handcrafted Item")
+    conf_default = float(raw.get("conf", 0.9))
+
+    raw_mats = raw.get("mats")
+    materials: List[Dict[str, Any]] = []
+    if isinstance(raw_mats, list) and raw_mats:
+        for item in raw_mats:
+            if not isinstance(item, dict):
+                continue
+            materials.append(
+                {
+                    "material_name": item.get("material_name") or item.get("name") or item.get("mat") or "Unknown",
+                    "material_family": item.get("material_family") or item.get("fam") or item.get("mat_fam") or "Metal",
+                    "location": item.get("location") or item.get("loc") or "main_body",
+                    "confidence": float(item.get("confidence", item.get("conf", conf_default))),
+                }
+            )
+    if not materials:
+        materials.append(
+            {
+                "material_name": str(raw.get("mat") or "Handcrafted Material"),
+                "material_family": str(raw.get("mat_fam") or "Metal"),
+                "location": str(raw.get("mat_loc") or "main_body"),
+                "confidence": float(raw.get("mat_conf", conf_default)),
+            }
+        )
+
+    sec_colors: List[Dict[str, str]] = []
+    for c in raw.get("sec_colors") or []:
+        if isinstance(c, dict) and c.get("name") and c.get("standard_family"):
+            sec_colors.append({"name": c["name"], "standard_family": c["standard_family"]})
+        elif isinstance(c, dict) and c.get("c") and c.get("f"):
+            sec_colors.append({"name": c["c"], "standard_family": c["f"]})
+
+    pat_cats = list(raw.get("pat") or [])
+    seals = list(raw.get("seals") or [])
+    snippets = list(raw.get("snippets") or [])
+    has_text = bool(raw.get("text", bool(seals or snippets or raw.get("brand"))))
+
+    return {
+        "product_id": product_id,
+        "product_identity": {
+            "apparent_product": str(raw.get("product") or subcat),
+            "catalog_title_en": str(raw.get("title") or f"Handcrafted {subcat}"),
+            "description_en": str(raw.get("desc") or f"Handcrafted {subcat.lower()} artisan product."),
+            "composition_type": raw.get("comp") or "single_item",
+            "set_contents": list(raw.get("set") or []),
+            "physical_scale": raw.get("scale") or "tabletop",
+        },
+        "ondc_taxonomy": {
+            "domain_code": raw.get("domain") or "ONDC:RET16",
+            "category": str(raw.get("cat") or "Home Decor"),
+            "subcategory": subcat,
+            "generic_name": str(raw.get("gen") or subcat),
+            "confidence": float(raw.get("dom_conf", conf_default)),
+        },
+        "color_profile": {
+            "primary_color": {
+                "name": str(raw.get("color") or raw.get("color_fam") or "Neutral"),
+                "standard_family": str(raw.get("color_fam") or "Brown"),
+            },
+            "secondary_colors": sec_colors,
+            "surface_finish": raw.get("finish") or "matte",
+            "color_distribution": str(raw.get("dist") or "solid"),
+        },
+        "materials": materials,
+        "pattern_and_craft": {
+            "has_pattern": bool(raw.get("has_pat", bool(pat_cats))),
+            "pattern_categories": pat_cats,
+            "craft_techniques": list(raw.get("craft") or []),
+            "motif_description": raw.get("motif"),
+        },
+        "structural_components": list(raw.get("parts") or []),
+        "text_and_seals": {
+            "has_visible_text": has_text,
+            "brand_or_artisan_mark": raw.get("brand"),
+            "certification_seals": seals,
+            "visible_text_snippets": snippets,
+            "text_legibility_confidence": float(raw.get("legib", 1.0)),
+            "needs_highres_label_crop": bool(raw.get("crop", False)),
+        },
+        "marketplace_enrichment": {
+            "target_audience": str(raw.get("aud") or "home_utility"),
+            "occasions": list(raw.get("occ") or []),
+            "search_keywords": list(raw.get("kw") or []),
+        },
+        "audit_telemetry": {
+            "views_processed": views_used,
+            "overall_confidence": conf_default,
+            "needs_seller_review": list(raw.get("review") or []),
+        },
+    }
+
+
 def extract_tool_or_json_payload(response: Dict[str, Any]) -> Dict[str, Any]:
     """Extract and parse JSON dict from forced tool call, falling back to message content."""
     choices = response.get("choices") or []
@@ -184,7 +306,7 @@ def extract_tool_or_json_payload(response: Dict[str, Any]) -> Dict[str, Any]:
         if isinstance(args, dict):
             return args
         if isinstance(args, str) and args.strip():
-            return json.loads(_strip_thought_and_fences(args))
+            return _loads_relaxed_json(_strip_thought_and_fences(args))
 
     content = msg.get("content") or ""
     cleaned = _strip_thought_and_fences(content)
@@ -195,7 +317,7 @@ def extract_tool_or_json_payload(response: Dict[str, Any]) -> Dict[str, Any]:
     end = cleaned.rfind("}")
     if start >= 0 and end > start:
         cleaned = cleaned[start : end + 1]
-    return json.loads(cleaned)
+    return _loads_relaxed_json(cleaned)
 
 
 class System2Engine:
@@ -406,11 +528,8 @@ class System2Engine:
             response = fn(**kwargs)
 
         payload = extract_tool_or_json_payload(response)
-        payload["product_id"] = product_id
-        telemetry = payload.setdefault("audit_telemetry", {})
-        if not telemetry.get("views_processed"):
-            telemetry["views_processed"] = views_used
+        normalized = normalize_wire_payload(payload, product_id=product_id, views_used=views_used)
 
-        validated = ProductIntelligenceOutput.model_validate(payload)
+        validated = ProductIntelligenceOutput.model_validate(normalized)
         return validated.model_dump(mode="json")
 
