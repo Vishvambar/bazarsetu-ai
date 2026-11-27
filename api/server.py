@@ -26,6 +26,7 @@ from api.schemas import (
     ArtisanListingPayload,
     BatchUploadResponse,
     BppUploadImageResponse,
+    DuplicateCandidateInfo,
     FidelityInfo,
     HealthResponse,
     JobStatus,
@@ -36,12 +37,27 @@ from api.schemas import (
     SellerApprovalRequest,
     SellerApprovalResponse,
     SyncProcessResponse,
+    System2AnalyzeRequest,
+    System2AnalyzeResponse,
+    System2JobState,
+    System2StatusResponse,
     TapRefineRequest,
     UploadResponse,
+    VisualDuplicateSearchRequest,
+    VisualDuplicateSearchResponse,
 )
 from config import CONFIG
 from core.device import DEVICE_MGR
 from pipeline.orchestrator import PipelineExecutionResult, System1Pipeline
+from system2.engine import System2Engine
+from system2.schemas import ProductIntelligenceOutput
+from system2.siglip_encoder import SigLIPEncoder
+from system2.taxonomy_grounder import TaxonomyGrounder
+from system2.visual_search import (
+    VisualDuplicateIndex,
+    escalate_label_inspection,
+    should_escalate_label,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("BazarSetu.API")
@@ -72,10 +88,60 @@ app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
 
 # In-memory and persisted job state repositories
 JOBS_DB: Dict[str, Dict] = {}
+SYSTEM2_JOBS_DB: Dict[str, Dict] = {}
 CATALOG_DB: Dict[str, Dict] = {}
 CATALOG_STORE_FILE = CONFIG.storage_root / "active_listings.json"
 pipeline_engine: Optional[System1Pipeline] = None
+system2_engine: Optional[System2Engine] = None
+siglip_encoder: Optional[SigLIPEncoder] = None
+taxonomy_grounder: Optional[TaxonomyGrounder] = None
+visual_index: Optional[VisualDuplicateIndex] = None
 executor = ThreadPoolExecutor(max_workers=max(2, DEVICE_MGR.device_count * 2))
+system2_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="system2-gpu1")
+MAIN_EVENT_LOOP: Optional[asyncio.AbstractEventLoop] = None
+_LOCK_INIT_GUARD = __import__("threading").Lock()
+_SYSTEM2_GPU1_LOCKS: Dict[int, asyncio.Lock] = {}
+
+
+def _get_system2_gpu1_lock() -> asyncio.Lock:
+    """Return the single per-event-loop asyncio.Lock serializing GPU 1 llama.cpp calls."""
+    loop = asyncio.get_running_loop()
+    loop_id = id(loop)
+    with _LOCK_INIT_GUARD:
+        lock = _SYSTEM2_GPU1_LOCKS.get(loop_id)
+        if lock is None:
+            lock = asyncio.Lock()
+            _SYSTEM2_GPU1_LOCKS[loop_id] = lock
+        return lock
+
+
+def get_system2_engine() -> System2Engine:
+    global system2_engine
+    if system2_engine is None:
+        logger.info("Initializing System2Engine (Gemma 4 12B QAT on cuda:1)...")
+        system2_engine = System2Engine(lazy_load=True)
+    return system2_engine
+
+
+def get_siglip_encoder() -> SigLIPEncoder:
+    global siglip_encoder
+    if siglip_encoder is None:
+        siglip_encoder = SigLIPEncoder(lazy_load=True)
+    return siglip_encoder
+
+
+def get_taxonomy_grounder() -> TaxonomyGrounder:
+    global taxonomy_grounder
+    if taxonomy_grounder is None:
+        taxonomy_grounder = TaxonomyGrounder(encoder=get_siglip_encoder(), preload_priors=False)
+    return taxonomy_grounder
+
+
+def get_visual_index() -> VisualDuplicateIndex:
+    global visual_index
+    if visual_index is None:
+        visual_index = VisualDuplicateIndex(encoder=get_siglip_encoder())
+    return visual_index
 
 def _load_catalog_store():
     global CATALOG_DB
@@ -103,8 +169,13 @@ def get_pipeline_engine() -> System1Pipeline:
 
 @app.on_event("startup")
 async def startup_event():
+    global MAIN_EVENT_LOOP
+    MAIN_EVENT_LOOP = asyncio.get_running_loop()
     get_pipeline_engine()
     _load_catalog_store()
+    if os.getenv("SYSTEM2_PRELOAD", "0") == "1":
+        get_system2_engine().load()
+        get_taxonomy_grounder().precompute_text_priors()
     logger.info("BazarSetu API ready to accept requests.")
 
 def _run_pipeline_job(job_id: str, temp_image_path: Path, product_id: str, force: bool):
@@ -173,6 +244,11 @@ def _run_pipeline_job(job_id: str, temp_image_path: Path, product_id: str, force
             "raw_result": res
         })
         logger.info(f"Job {job_id} finished with status {final_status} in {res.total_latency_ms:.1f} ms.")
+        if final_status == JobStatus.COMPLETED:
+            _maybe_auto_trigger_system2(
+                product_id=product_id,
+                front_path=res.marketplace_image_path or res.cutout_path or res.original_path,
+            )
 
     except Exception as e:
         logger.exception(f"Job {job_id} failed: {e}")
@@ -525,6 +601,12 @@ async def process_studio_image_sync(
         raw_url = f"{base_url}/storage/{p_orig.relative_to(CONFIG.storage_root).as_posix()}" if p_orig else ""
         thumb_url = f"{base_url}/storage/{p_thumb.relative_to(CONFIG.storage_root).as_posix()}" if p_thumb else ""
 
+        if res.status == "COMPLETED":
+            _maybe_auto_trigger_system2(
+                product_id=catalog_id,
+                front_path=res.marketplace_image_path or res.cutout_path or res.original_path,
+            )
+
         return SyncProcessResponse(
             status=res.status,
             catalog_id=catalog_id,
@@ -591,6 +673,12 @@ async def bpp_upload_image(
             studio_url = f"{base_url}/storage/{p_market.relative_to(CONFIG.storage_root).as_posix()}" if p_market else ""
             raw_url = f"{base_url}/storage/{p_orig.relative_to(CONFIG.storage_root).as_posix()}" if p_orig else ""
             thumb_url = f"{base_url}/storage/{p_thumb.relative_to(CONFIG.storage_root).as_posix()}" if p_thumb else ""
+
+            if res.status == "COMPLETED":
+                _maybe_auto_trigger_system2(
+                    product_id=catalog_id,
+                    front_path=res.marketplace_image_path or res.cutout_path or res.original_path,
+                )
 
             return BppUploadImageResponse(
                 status="UPLOADED",
@@ -748,5 +836,349 @@ def bpp_approve_product_listing(product_id: str, req: SellerApprovalRequest):
 def bpp_refine_segmentation(job_id: str, req: TapRefineRequest):
     """BPP alias for SAM 2 tap coordinate refinement."""
     return refine_segmentation(job_id, req)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# System 2 (Visual Catalog Intelligence - GPU 1 + SigLIP GPU 0)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _resolve_system2_views(product_id: str, explicit_views: Optional[Dict[str, str]]) -> Dict[str, str]:
+    """Locate Stage G marketplace/cutout images for System 2 inspection."""
+    if explicit_views:
+        return dict(explicit_views)
+
+    product_root = CONFIG.storage_root / "products" / product_id
+    for folder_name in ("marketplace", "cutouts", "original"):
+        sub = product_root / folder_name
+        if sub.exists():
+            candidates = sorted(
+                [p for p in sub.iterdir() if p.is_file()],
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )
+            if candidates:
+                return {"front_view": str(candidates[0])}
+
+    raise FileNotFoundError(
+        f"No studio or cutout views found for product_id='{product_id}' under {product_root}"
+    )
+
+
+async def _execute_system2_pipeline(product_id: str, req: System2AnalyzeRequest) -> None:
+    """
+    Execute System 2 end-to-end safely:
+      1. Serialize Gemma 4 12B inference + optional high-res escalation behind GPU 1 asyncio.Lock
+      2. Run Step 5 ONDC Taxonomy Grounding + Step 6 SigLIP duplicate check on GPU 0
+      3. Persist result into SYSTEM2_JOBS_DB & Product Master metadata
+    """
+    job_entry = SYSTEM2_JOBS_DB.setdefault(
+        product_id,
+        {
+            "product_id": product_id,
+            "status": System2JobState.QUEUED,
+            "created_at_iso": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+    job_entry["status"] = System2JobState.PROCESSING
+    job_entry["error"] = None
+
+    try:
+        views = _resolve_system2_views(product_id, req.views)
+        front_path = views.get("front_view") or next(iter(views.values()))
+        loop = asyncio.get_running_loop()
+        engine = get_system2_engine()
+
+        def _gpu1_predict_and_escalate():
+            raw_dict = engine.predict(product_id=product_id, views=views)
+            pred = ProductIntelligenceOutput.model_validate(raw_dict)
+            did_escalate = False
+            if req.run_escalation and should_escalate_label(pred):
+                pred, did_escalate = escalate_label_inspection(
+                    product_id=product_id,
+                    initial_output=pred,
+                    engine=engine,
+                    storage_root=CONFIG.storage_root,
+                    fallback_view_path=front_path,
+                )
+            return pred, did_escalate
+
+        # Critical guardrail: llama_cpp.Llama is NOT thread-safe -> hold GPU 1 lock
+        gpu1_lock = _get_system2_gpu1_lock()
+        async with gpu1_lock:
+            pred, did_escalate = await loop.run_in_executor(
+                system2_executor, _gpu1_predict_and_escalate
+            )
+
+        # Step 5: ONDC Taxonomy Grounding + Step 6 Duplicate Search on GPU 0
+        grounder = get_taxonomy_grounder()
+        visual_idx = get_visual_index()
+
+        def _gpu0_ground_and_index():
+            siglip_emb = None
+            export_domain = pred.ondc_taxonomy.domain_code.to_gateway_domain(
+                translate_home_decor=req.translate_home_decor_for_gateway
+            )
+            grounded_pred = pred
+            try:
+                ground_res = grounder.ground(
+                    pred,
+                    front_image_path=front_path,
+                    translate_home_decor_for_gateway=req.translate_home_decor_for_gateway,
+                    compute_priors=True,
+                )
+                grounded_pred = ground_res.output
+                export_domain = ground_res.export_domain_code
+                siglip_emb = ground_res.image_embedding
+            except Exception as exc:
+                logger.warning("Taxonomy grounding prior step skipped for %s: %s", product_id, exc)
+                fallback_ground = grounder.ground(
+                    pred,
+                    translate_home_decor_for_gateway=req.translate_home_decor_for_gateway,
+                    compute_priors=False,
+                )
+                grounded_pred = fallback_ground.output
+                export_domain = fallback_ground.export_domain_code
+
+            dup_matches: List[DuplicateCandidateInfo] = []
+            if req.run_duplicate_check:
+                try:
+                    dup_res, _ = visual_idx.index_and_search(
+                        product_id=product_id,
+                        image_source=front_path,
+                        image_embedding=siglip_emb,
+                        metadata={
+                            "title_en": grounded_pred.product_identity.catalog_title_en,
+                            "category": grounded_pred.ondc_taxonomy.category,
+                            "domain_code": export_domain,
+                        },
+                    )
+                    dup_matches = [
+                        DuplicateCandidateInfo(
+                            product_id=m.product_id,
+                            similarity=m.similarity,
+                            title_en=m.title_en,
+                            category=m.category,
+                            domain_code=m.domain_code,
+                            thumbnail_url=m.thumbnail_url,
+                        )
+                        for m in dup_res.matches
+                    ]
+                except Exception as exc:
+                    logger.warning("Duplicate visual search skipped for %s: %s", product_id, exc)
+            return grounded_pred, export_domain, dup_matches
+
+        grounded_pred, export_domain, dup_matches = await loop.run_in_executor(
+            executor, _gpu0_ground_and_index
+        )
+
+        # Persist alongside Product Master metadata
+        meta_dir = CONFIG.storage_root / "products" / product_id / "metadata"
+        meta_dir.mkdir(parents=True, exist_ok=True)
+        s2_meta_path = meta_dir / "system2_intelligence.json"
+        s2_meta_path.write_text(
+            json.dumps(
+                {
+                    "product_id": product_id,
+                    "export_domain_code": export_domain,
+                    "escalated": did_escalate,
+                    "duplicate_matches": [m.model_dump() for m in dup_matches],
+                    "result": grounded_pred.model_dump(mode="json"),
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+
+        job_entry.update(
+            {
+                "status": System2JobState.COMPLETED,
+                "completed_at_iso": datetime.now(timezone.utc).isoformat(),
+                "error": None,
+                "escalated": did_escalate,
+                "export_domain_code": export_domain,
+                "needs_seller_review": list(grounded_pred.audit_telemetry.needs_seller_review),
+                "duplicate_matches": dup_matches,
+                "result": grounded_pred,
+            }
+        )
+        logger.info(
+            "System 2 completed %s -> domain=%s review=%s duplicates=%d escalated=%s",
+            product_id,
+            export_domain,
+            job_entry["needs_seller_review"],
+            len(dup_matches),
+            did_escalate,
+        )
+    except Exception as exc:
+        logger.exception("System 2 pipeline failed for %s: %s", product_id, exc)
+        job_entry.update(
+            {
+                "status": System2JobState.FAILED,
+                "completed_at_iso": datetime.now(timezone.utc).isoformat(),
+                "error": str(exc),
+            }
+        )
+
+
+def _schedule_system2_background(product_id: str, req: System2AnalyzeRequest, from_thread: bool = False) -> Dict:
+    """Register queued state (deduplicating active runs) and dispatch async task."""
+    existing = SYSTEM2_JOBS_DB.get(product_id)
+    if existing and not req.force and existing.get("status") in (
+        System2JobState.QUEUED,
+        System2JobState.PROCESSING,
+    ):
+        return existing
+
+    entry = {
+        "product_id": product_id,
+        "status": System2JobState.QUEUED,
+        "created_at_iso": datetime.now(timezone.utc).isoformat(),
+        "completed_at_iso": None,
+        "error": None,
+        "escalated": False,
+        "export_domain_code": None,
+        "needs_seller_review": [],
+        "duplicate_matches": [],
+        "result": None,
+    }
+    SYSTEM2_JOBS_DB[product_id] = entry
+
+    if from_thread:
+        if MAIN_EVENT_LOOP is not None and MAIN_EVENT_LOOP.is_running():
+            asyncio.run_coroutine_threadsafe(_execute_system2_pipeline(product_id, req), MAIN_EVENT_LOOP)
+    else:
+        asyncio.create_task(_execute_system2_pipeline(product_id, req))
+    return entry
+
+
+def _maybe_auto_trigger_system2(product_id: str, front_path: Optional[str]) -> None:
+    """Trigger System 2 asynchronously right after System 1 finishes when enabled."""
+    if not front_path:
+        return
+    auto_enabled = os.getenv("SYSTEM2_AUTO_TRIGGER", "0") == "1" or (system2_engine is not None)
+    if not auto_enabled:
+        return
+    try:
+        req = System2AnalyzeRequest(product_id=product_id, views={"front_view": front_path})
+        in_async = False
+        try:
+            asyncio.get_running_loop()
+            in_async = True
+        except RuntimeError:
+            in_async = False
+        _schedule_system2_background(product_id, req, from_thread=not in_async)
+    except Exception as exc:
+        logger.debug("Auto-trigger System 2 skipped for %s: %s", product_id, exc)
+
+
+@app.post(
+    "/api/v1/system2/analyze",
+    response_model=System2AnalyzeResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    tags=["System 2 - Visual Catalog Intelligence"],
+)
+async def analyze_product_system2(req: System2AnalyzeRequest):
+    """
+    Queue GPU 1 Gemma 4 + GPU 0 SigLIP Visual Catalog Intelligence for a product.
+    Safe against duplicate concurrent calls for the same product_id.
+    """
+    existing = SYSTEM2_JOBS_DB.get(req.product_id)
+    if existing and not req.force and existing.get("status") in (
+        System2JobState.QUEUED,
+        System2JobState.PROCESSING,
+    ):
+        return System2AnalyzeResponse(
+            product_id=req.product_id,
+            status=existing["status"],
+            deduplicated=True,
+            message=f"System 2 analysis for '{req.product_id}' is already {existing['status'].value}.",
+        )
+
+    entry = _schedule_system2_background(req.product_id, req, from_thread=False)
+    return System2AnalyzeResponse(
+        product_id=req.product_id,
+        status=entry["status"],
+        deduplicated=False,
+        message=f"System 2 analysis queued on GPU 1 for '{req.product_id}'.",
+    )
+
+
+@app.get(
+    "/api/v1/system2/status/{product_id}",
+    response_model=System2StatusResponse,
+    status_code=status.HTTP_200_OK,
+    tags=["System 2 - Visual Catalog Intelligence"],
+)
+async def get_system2_status(product_id: str):
+    """Poll System 2 enrichment status, ONDC taxonomy, certification seals, and seller review flags."""
+    if product_id not in SYSTEM2_JOBS_DB:
+        raise HTTPException(status_code=404, detail=f"No System 2 job found for product '{product_id}'.")
+    entry = SYSTEM2_JOBS_DB[product_id]
+    return System2StatusResponse(
+        product_id=entry["product_id"],
+        status=entry["status"],
+        created_at_iso=entry["created_at_iso"],
+        completed_at_iso=entry.get("completed_at_iso"),
+        error=entry.get("error"),
+        escalated=bool(entry.get("escalated", False)),
+        export_domain_code=entry.get("export_domain_code"),
+        needs_seller_review=list(entry.get("needs_seller_review") or []),
+        duplicate_matches=list(entry.get("duplicate_matches") or []),
+        result=entry.get("result"),
+    )
+
+
+@app.post(
+    "/api/v1/system2/search-duplicates",
+    response_model=VisualDuplicateSearchResponse,
+    status_code=status.HTTP_200_OK,
+    tags=["System 2 - Visual Catalog Intelligence"],
+)
+async def search_visual_duplicates(req: VisualDuplicateSearchRequest):
+    """Search existing indexed seller products via GPU 0 SigLIP cosine similarity."""
+    idx = get_visual_index()
+    encoder = get_siglip_encoder()
+
+    target_path: Optional[str] = req.image_path
+    pid = req.product_id or ""
+    if not target_path and pid:
+        try:
+            resolved = _resolve_system2_views(pid, None)
+            target_path = resolved.get("front_view")
+        except FileNotFoundError:
+            target_path = None
+
+    if not target_path:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide image_path or a product_id with stored studio/cutout images.",
+        )
+
+    loop = asyncio.get_running_loop()
+    emb = await loop.run_in_executor(executor, lambda: encoder.encode_image(target_path))
+    dup_res = idx.search_similar(
+        query_embedding=emb,
+        query_product_id=pid,
+        threshold=req.threshold,
+        top_k=req.top_k,
+    )
+    return VisualDuplicateSearchResponse(
+        product_id=pid,
+        threshold=dup_res.threshold,
+        has_duplicates=dup_res.has_duplicates,
+        matches=[
+            DuplicateCandidateInfo(
+                product_id=m.product_id,
+                similarity=m.similarity,
+                title_en=m.title_en,
+                category=m.category,
+                domain_code=m.domain_code,
+                thumbnail_url=m.thumbnail_url,
+            )
+            for m in dup_res.matches
+        ],
+    )
+
 
 

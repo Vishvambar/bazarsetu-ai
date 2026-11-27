@@ -105,6 +105,8 @@ def print_banner(public_url: str, port: int):
     print(f" BPP Upload Bridge  : {public_url}/api/v1/bpp/upload-image")
     print(f" BPP Studio Image   : {public_url}/api/v1/bpp/studio-image")
     print(f" BPP Publish Route  : {public_url}/api/v1/bpp/publish")
+    print(f" System 2 Analyze   : {public_url}/api/v1/system2/analyze")
+    print(f" System 2 Status    : {public_url}/api/v1/system2/status/{{product_id}}")
     print("-" * 70)
     print(" 📱 AMAR'S FLUTTER APP (.env) CONFIGURATION:")
     print(" Copy & paste these exact lines into project-zerotype/.env :")
@@ -115,6 +117,8 @@ def print_banner(public_url: str, port: int):
     print("=" * 70 + "\n")
 
 def main():
+    os.environ.setdefault("SYSTEM2_AUTO_TRIGGER", "1")
+    os.environ.setdefault("SYSTEM2_PRELOAD", "1")
     parser = argparse.ArgumentParser(description="BazarSetu V3.0 Kaggle API Tunnel Launcher")
     parser.add_argument("--port", type=int, default=8000, help="Local port for FastAPI server")
     parser.add_argument("--ngrok_token", type=str, default=None, help="Optional ngrok authtoken")

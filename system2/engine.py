@@ -42,14 +42,14 @@ Exact Enum & Visual Classification Rules:
 - domain: "ONDC:RET16" (Pottery, Metalware, Woodcraft, Stone/Marble, Home Decor, decorative Jewellery Boxes) | "ONDC:RET12" (Sarees, Fabrics, Kurtas/Dhotis/Apparel, Footwear) | "ONDC:RET10" (Packaged Foods/Pickles jars)
 - comp: "single_item" (1 garment/saree/object even with hangtags) | "matched_set" (2+ distinct/coordinated bowls, musicians/figurines, kurta+dupatta, 2 fabric bolts) | "multipack" (2+ identical/near-identical pieces e.g. matching oil diyas, identical bud vases) | "product_with_packaging" (labelled jar OR footwear/product photographed with packaging box)
 - scale: "pocket_wearable" (footwear/chappals, jewelry) | "handheld" (mugs, cups, tumblers, small single bowls, small oil diyas) | "tabletop" (pickle jars, vases, teapots, kalash, urlis, 2-bowl sets, carved bowls, pillar candle stands, boxes, figurines, trays) | "floor_standing" (ONLY >=3ft tall floor samai lamps or large planters) | "draped_fabric" (ALL sarees, dhotis, veshtis, kurtas, kaftans, dupattas, fabric lengths)
-- color_fam: EXACT one of ["Red","Blue","Green","Yellow","Orange","Pink","Purple","Grey","Black","White","Brown","Gold","Silver","Beige","Multicolor"] (Gold=brass/bronze/gold; Silver=pewter/silver/white-metal tumbler; Orange=burnished copper/saffron; Brown=wood/terracotta clay/leather/amber pickle jars; Black=dark oxidized black metal; White=white marble; Purple=deep violet-purple)
+- color_fam: EXACT one of ["Red","Blue","Green","Yellow","Orange","Pink","Purple","Grey","Black","White","Brown","Gold","Silver","Beige","Multicolor"] (Gold=brass/bronze/gold; Silver=pewter/silver/white-metal; Orange=burnished copper/saffron; Brown=wood/terracotta/leather/glass mango pickle jars/earthy ceramic; Black=dark oxidized matte black metal; White=white marble or white glazed ceramic base; Pink=magenta/fuchsia/pink saree; Multicolor=brightly hand-painted multi-hue figurines)
 - finish: "matte"|"glossy"|"metallic"|"oxidized_antique"|"raw_natural"|"woven_textile"|"hammered_mathar"|"glazed"
 - mat_fam: "Metal"|"Textile"|"Wood"|"Clay_Ceramic"|"Leather"|"Stone"|"Glass"|"Natural_Fiber"|"Paper_Bamboo" (carved/painted marble stand=Stone; decorative ornate jewellery box base=Wood)
 - pat: subset of ["solid","geometric","floral","traditional_motif","warli_tribal","striped","checked","abstract"]
-- craft: emit ALL applicable visible tags from ["hand_hammered_mathar","lost_wax_cast","engraved","embossed","hand_painted","glazed","hand_carved","pit_fired","zari_brocade","embroidery","block_print","warli_painted"] (only use hand_hammered_mathar when round dimples cover metal; sculpted bronze/brass figurines or flasks=lost_wax_cast; etched lines on tumblers/vases/terracotta=engraved; raised 3D relief on teapot/studded box=embossed; shiny painted ceramic=BOTH glazed+hand_painted; rustic matte terracotta=pit_fired; white tribal stick-figures on wooden tray=warli_painted; woven gold/metallic saree=zari_brocade)
-- seals: inspect EVERY paper hangtag, cloth tag, AND jar label from top to bottom (a single vertical white card next to a jar often stacks 3-4 DIFFERENT seals above 'India Handloom' — do NOT skip the card!). Extract ALL matching seals from ["Silk Mark","Handloom Mark","GI Tag","FSSAI","BIS Hallmark"] (red butterfly/'SILK MARK'="Silk Mark"; circular wheel/hand 'HANDLOOM MARK'="Handloom Mark"; teardrop pin/'GI Tag'="GI Tag"; jar 'fssai'/green veg dot="FSSAI"; omit only 'India Handloom'/'India Handmade' itself). Else []
+- craft: emit ALL applicable visible tags from ["hand_hammered_mathar","lost_wax_cast","engraved","embossed","hand_painted","glazed","hand_carved","pit_fired","zari_brocade","embroidery","block_print","warli_painted"] (round dimples covering metal=hand_hammered_mathar; sculpted bronze/brass figurines or flasks=lost_wax_cast; etched lines on metal/terracotta=engraved; raised 3D relief on teapot/studded box=embossed; shiny painted ceramic=BOTH glazed+hand_painted; rustic matte terracotta=pit_fired; white tribal stick-figures on flat wooden tray=warli_painted; metallic zari saree=zari_brocade)
+- seals: examine EVERY white card, cloth tag, and jar sticker completely! On composite textile+jar scenes with a white card on the left, read ALL stacked logos on the card top-to-bottom plus jar sticker: red butterfly/'SILK MARK'="Silk Mark"; blue wheel OR brown hand emblem='Handloom Mark'; teardrop pin='GI Tag'; jar 'fssai'/green dot='FSSAI' (never omit Handloom Mark or Silk Mark when FSSAI is present; omit 'India Handloom'/'India Handmade'). Else []
 - text: true if tag/label text visible, else false; legib: 0.0-1.0; crop: true ONLY if blurry
-- review: set "mat_conf": 0.65 and "review": ["materials[0].material_name"] ONLY for these cases: (a) 1 vessel fusing ceramic+cane OR 2 unlabelled contrasting fabric bolts side-by-side; (b) off-white/beige kurta+dupatta flat-lay beside brass bangles/bowl props where fiber purity is unlabelled; (c) smooth mirror-polished plain brass bowl with no carvings/dimples OR paired engraved bowls showing mismatched copper-toned rim vs aged brass purity. Keep clear pottery/wood/carved/hammered/zari/red-or-yellow garments/tagged items as "review": []!
+- review: set "mat_conf": 0.65 and "review": ["materials[0].material_name"] whenever ANY of these 3 apply: (a) 1 vessel fusing ceramic+woven cane OR 2 contrasting unlabelled fabric bolts side-by-side; (b) off-white/cream folded kurta+dupatta displayed next to brass bangles & bowl props; (c) smooth mirror-polished plain golden metal bowl with no carvings/dimples OR paired engraved bowls with copper-tinted rim vs aged brass contrast (metal purity/plating unclear). Otherwise "review": [].
 
 Example schema (fill values for the actual input image):
 {"product":"<name>","title":"<40-70 char EN title>","desc":"<8-14 word EN sentence>","comp":"single_item","scale":"tabletop","domain":"ONDC:RET16","cat":"<category>","subcat":"<subcategory>","color":"<color>","color_fam":"<color_fam>","finish":"matte","mat":"<material>","mat_fam":"Clay_Ceramic","mat_conf":0.95,"craft":[],"seals":[],"text":false,"legib":1.0,"crop":false,"conf":0.94,"review":[],"kw":["<kw1>","<kw2>"]}"""
@@ -72,7 +72,8 @@ class System2Config:
     n_threads: int = int(os.getenv("SYSTEM2_N_THREADS", "4"))
     temperature: float = 0.1
     max_tokens: int = 380
-    front_max_dim: int = 768        # 16 * 48 patches (keeps 16:9 multi-seal cards crisp)
+    front_max_dim: int = 768        # 16 * 48 patches (square)
+    wide_front_max_dim: int = 960   # 20 * 48 patches for >=1.45:1 widescreen scenes (960x528 < 768x768 px)
     secondary_max_dim: int = 384    # 8 * 48 patches
     escalation_max_dim: int = 864   # 18 * 48 patches (back_or_label_view / escalations)
     enable_thinking: bool = False
@@ -616,6 +617,11 @@ class System2Engine:
                 max_dim = self.cfg.escalation_max_dim
             elif vkey == "front_view":
                 max_dim = self.cfg.front_max_dim
+                if resolved_path.exists():
+                    with Image.open(resolved_path) as im:
+                        w, h = im.size
+                    if min(w, h) > 0 and (max(w, h) / float(min(w, h))) >= 1.45:
+                        max_dim = self.cfg.wide_front_max_dim
             else:
                 max_dim = self.cfg.secondary_max_dim
 

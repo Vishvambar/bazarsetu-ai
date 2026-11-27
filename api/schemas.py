@@ -8,6 +8,8 @@ from enum import Enum
 from typing import Dict, List, Optional
 from pydantic import BaseModel, Field
 
+from system2.schemas import ProductIntelligenceOutput
+
 class JobStatus(str, Enum):
     UPLOADED = "UPLOADED"
     PROCESSING = "PROCESSING"
@@ -131,6 +133,10 @@ class ArtisanListingPayload(BaseModel):
     studio_image_url: str = ""
     gallery_images: List[str] = Field(default_factory=list)
     available_qty: int = Field(default=5, ge=0)
+    needs_seller_review: List[str] = Field(default_factory=list)
+    certification_seals: List[str] = Field(default_factory=list)
+    craft_techniques: List[str] = Field(default_factory=list)
+
 
 class PublishResponse(BaseModel):
     status: str = "PUBLISHED"
@@ -141,8 +147,68 @@ class PublishResponse(BaseModel):
     raw_image_url: Optional[str] = None
     studio_image_url: Optional[str] = None
 
+
 class ListingsListResponse(BaseModel):
     count: int
     listings: List[Dict]
+
+
+class System2JobState(str, Enum):
+    QUEUED = "queued"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class DuplicateCandidateInfo(BaseModel):
+    product_id: str
+    similarity: float
+    title_en: str = ""
+    category: str = ""
+    domain_code: str = ""
+    thumbnail_url: str = ""
+
+
+class System2AnalyzeRequest(BaseModel):
+    product_id: str = Field(..., min_length=1)
+    views: Optional[Dict[str, str]] = None
+    force: bool = False
+    run_duplicate_check: bool = True
+    run_escalation: bool = True
+    translate_home_decor_for_gateway: bool = False
+
+
+class System2AnalyzeResponse(BaseModel):
+    product_id: str
+    status: System2JobState
+    deduplicated: bool = False
+    message: str
+
+
+class System2StatusResponse(BaseModel):
+    product_id: str
+    status: System2JobState
+    created_at_iso: str
+    completed_at_iso: Optional[str] = None
+    error: Optional[str] = None
+    escalated: bool = False
+    export_domain_code: Optional[str] = None
+    needs_seller_review: List[str] = Field(default_factory=list)
+    duplicate_matches: List[DuplicateCandidateInfo] = Field(default_factory=list)
+    result: Optional[ProductIntelligenceOutput] = None
+
+
+class VisualDuplicateSearchRequest(BaseModel):
+    product_id: Optional[str] = None
+    image_path: Optional[str] = None
+    threshold: float = Field(default=0.88, ge=0.0, le=1.0)
+    top_k: int = Field(default=5, ge=1, le=20)
+
+
+class VisualDuplicateSearchResponse(BaseModel):
+    product_id: str
+    threshold: float
+    has_duplicates: bool
+    matches: List[DuplicateCandidateInfo] = Field(default_factory=list)
 
 

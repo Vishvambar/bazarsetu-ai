@@ -19,12 +19,24 @@ from system2.schemas import (
     SurfaceFinish,
     TextAndSeals,
 )
+from system2.siglip_encoder import SigLIPConfig, SigLIPEncoder
+from system2.taxonomy_grounder import CURATED_ONDC_LEAVES, TaxonomyGrounder, TaxonomyGroundingResult
+from system2.visual_search import (
+    DuplicateMatch,
+    DuplicateSearchResult,
+    VisualDuplicateIndex,
+    escalate_label_inspection,
+    should_escalate_label,
+)
 
 __all__ = [
     "AuditTelemetry",
+    "CURATED_ONDC_LEAVES",
     "ColorProfile",
     "ColorSwatch",
     "CompositionType",
+    "DuplicateMatch",
+    "DuplicateSearchResult",
     "MarketplaceEnrichment",
     "MaterialDetail",
     "ONDCDomainCode",
@@ -34,10 +46,17 @@ __all__ = [
     "PhysicalScale",
     "ProductIdentity",
     "ProductIntelligenceOutput",
+    "SigLIPConfig",
+    "SigLIPEncoder",
     "StructuralComponent",
     "SurfaceFinish",
     "System2Config",
     "System2Engine",
+    "TaxonomyGrounder",
+    "TaxonomyGroundingResult",
     "TextAndSeals",
+    "VisualDuplicateIndex",
+    "escalate_label_inspection",
+    "should_escalate_label",
 ]
 

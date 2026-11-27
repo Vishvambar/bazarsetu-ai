@@ -9,9 +9,9 @@ echo "=== Checking Python & CUDA Compiler ==="
 python3 --version
 which nvcc && nvcc --version || echo "WARNING: nvcc not in PATH"
 
-echo "=== Installing System 1 + FastAPI Dependencies ==="
+echo "=== Installing System 1, SigLIP & FastAPI Dependencies ==="
 pip install -q --upgrade pip
-pip install -q einops timm scikit-image opencv-python-headless pydantic fastapi uvicorn python-multipart huggingface_hub
+pip install -q einops timm scikit-image opencv-python-headless pydantic fastapi uvicorn python-multipart huggingface_hub transformers sentencepiece protobuf
 
 echo "=== Ensuring llama-cpp-python with CUDA Support (Prebuilt Wheel) ==="
 if ! python3 -c '

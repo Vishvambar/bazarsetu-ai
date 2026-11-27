@@ -154,7 +154,9 @@ class System2EngineTests(unittest.TestCase):
         self.assertEqual(cfg.tensor_split, [0.0, 1.0])
         self.assertFalse(cfg.use_tools)
         self.assertEqual(cfg.front_max_dim % 48, 0)
+        self.assertEqual(cfg.wide_front_max_dim % 48, 0)
         self.assertEqual(cfg.secondary_max_dim % 48, 0)
+        self.assertEqual(cfg.escalation_max_dim % 48, 0)
 
         captured: Dict[str, Any] = {}
 
