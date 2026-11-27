@@ -10,7 +10,7 @@ Locked schema shared between:
 from __future__ import annotations
 
 from enum import Enum
-from typing import List, Optional
+from typing import Any, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -199,3 +199,22 @@ class ProductIntelligenceOutput(BaseModel):
     text_and_seals: TextAndSeals
     marketplace_enrichment: MarketplaceEnrichment
     audit_telemetry: AuditTelemetry
+
+
+class QuestionOption(BaseModel):
+    option_id: str
+    label: str
+    value: Any
+    is_model_prediction: bool = False
+
+
+class ProductMCQ(BaseModel):
+    question_id: str
+    target_field: str
+    purpose: Literal["verify_prediction", "complete_catalog"]
+    question_text: str
+    options: List[QuestionOption] = Field(..., min_length=2, max_length=6)
+    allow_multiple: bool = False
+    allow_custom_input: bool = True
+    default_option_id: Optional[str] = None
+    required: bool = True

@@ -1,6 +1,7 @@
 """BazarSetu System 2: Visual Catalog Intelligence package."""
 
 from system2.engine import System2Config, System2Engine
+from system2.question_generator import apply_mcq_answers, generate_product_mcqs
 from system2.schemas import (
     AuditTelemetry,
     ColorProfile,
@@ -15,6 +16,8 @@ from system2.schemas import (
     PhysicalScale,
     ProductIdentity,
     ProductIntelligenceOutput,
+    ProductMCQ,
+    QuestionOption,
     StructuralComponent,
     SurfaceFinish,
     TextAndSeals,
@@ -46,6 +49,8 @@ __all__ = [
     "PhysicalScale",
     "ProductIdentity",
     "ProductIntelligenceOutput",
+    "ProductMCQ",
+    "QuestionOption",
     "SigLIPConfig",
     "SigLIPEncoder",
     "StructuralComponent",
@@ -56,7 +61,9 @@ __all__ = [
     "TaxonomyGroundingResult",
     "TextAndSeals",
     "VisualDuplicateIndex",
+    "apply_mcq_answers",
     "escalate_label_inspection",
+    "generate_product_mcqs",
     "should_escalate_label",
 ]
 

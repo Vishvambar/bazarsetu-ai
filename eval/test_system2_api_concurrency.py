@@ -201,10 +201,28 @@ class System2ApiConcurrencyTests(unittest.IsolatedAsyncioTestCase):
             # 3 normal passes + 1 high-res escalation pass for prod_esc = 4 total LLM calls
             self.assertEqual(state["calls"], 4)
 
-            # Confirm high-res escalation merged GI Tag on prod_esc
+            # Confirm high-res escalation merged GI Tag on prod_esc & generated product MCQs
             esc_body = statuses["prod_esc"]
             self.assertTrue(esc_body["escalated"])
             self.assertIn("GI Tag", esc_body["result"]["text_and_seals"]["certification_seals"])
+            self.assertGreaterEqual(len(esc_body["verification_questions"]), 2)
+            q_ids = {q["question_id"] for q in esc_body["verification_questions"]}
+            self.assertIn("vessel_capacity", q_ids)
+
+            # Submit seller MCQ answers and verify review confirmation + persisted catalog_specs
+            verify_resp = await client.post(
+                "/api/v1/system2/verify/prod_esc",
+                json={
+                    "answers": {
+                        "vessel_capacity": "Medium (500 ml - 1.2 L / 6-8 in)",
+                        "vessel_food_safe": "Yes - Food / Water Safe",
+                    }
+                },
+            )
+            self.assertEqual(verify_resp.status_code, 200)
+            vdata = verify_resp.json()
+            self.assertEqual(vdata["catalog_specs"]["vessel_capacity"], "Medium (500 ml - 1.2 L / 6-8 in)")
+            self.assertEqual(vdata["catalog_specs"]["vessel_food_safe"], "Yes - Food / Water Safe")
 
             # Confirm duplicate search finds previously indexed matching products
             dup_resp = await client.post(

@@ -5,10 +5,10 @@ Pydantic contracts for Amar's Flutter application.
 
 from __future__ import annotations
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
-from system2.schemas import ProductIntelligenceOutput
+from system2.schemas import ProductIntelligenceOutput, ProductMCQ
 
 class JobStatus(str, Enum):
     UPLOADED = "UPLOADED"
@@ -195,7 +195,21 @@ class System2StatusResponse(BaseModel):
     export_domain_code: Optional[str] = None
     needs_seller_review: List[str] = Field(default_factory=list)
     duplicate_matches: List[DuplicateCandidateInfo] = Field(default_factory=list)
+    verification_questions: List[ProductMCQ] = Field(default_factory=list)
+    catalog_specs: Dict[str, Any] = Field(default_factory=dict)
     result: Optional[ProductIntelligenceOutput] = None
+
+
+class System2VerifyQuestionsRequest(BaseModel):
+    answers: Dict[str, Any] = Field(default_factory=dict)
+
+
+class System2VerifyQuestionsResponse(BaseModel):
+    product_id: str
+    status: System2JobState
+    needs_seller_review: List[str] = Field(default_factory=list)
+    catalog_specs: Dict[str, Any] = Field(default_factory=dict)
+    result: ProductIntelligenceOutput
 
 
 class VisualDuplicateSearchRequest(BaseModel):

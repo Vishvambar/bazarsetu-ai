@@ -21,6 +21,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from eval.test_system2_engine import _sample_valid_payload
 from system2.engine import PATCH_SIZE, System2Config, System2Engine
+from system2.question_generator import apply_mcq_answers, generate_product_mcqs
 from system2.schemas import ProductIntelligenceOutput
 from system2.siglip_encoder import SigLIPEncoder
 from system2.taxonomy_grounder import CURATED_ONDC_LEAVES, TaxonomyGrounder
@@ -203,6 +204,72 @@ class Step5AndStep6Tests(unittest.TestCase):
             self.assertGreaterEqual(merged_pred.text_and_seals.text_legibility_confidence, 0.96)
             self.assertIn("escalation_crop_view", merged_pred.audit_telemetry.views_processed)
             self.assertIn("messages", seen_kwargs)
+
+    def test_product_specific_zero_fluff_mcqs_and_answer_application(self) -> None:
+        # 1. Paithani Saree: expects saree length, wash care, seals — zero food/footwear fluff
+        saree_dict = _sample_valid_payload("saree_q")
+        saree_dict["product_identity"]["apparent_product"] = "Paithani Silk Saree"
+        saree_dict["product_identity"]["physical_scale"] = "draped_fabric"
+        saree_dict["ondc_taxonomy"] = {
+            "domain_code": "ONDC:RET12",
+            "category": "Sarees",
+            "subcategory": "Paithani Silk Saree",
+            "generic_name": "Handloom Silk Saree",
+            "confidence": 0.94,
+        }
+        saree_dict["materials"] = [
+            {"material_name": "Pure Silk", "material_family": "Textile", "location": "main_body", "confidence": 0.88}
+        ]
+        saree_dict["text_and_seals"]["certification_seals"] = ["Silk Mark"]
+        saree_pred = ProductIntelligenceOutput.model_validate(saree_dict)
+        saree_mcqs = generate_product_mcqs(saree_pred)
+        q_ids = [q.question_id for q in saree_mcqs]
+        self.assertIn("saree_length_blouse", q_ids)
+        self.assertIn("textile_wash_care", q_ids)
+        self.assertIn("verify_certification_seals", q_ids)
+        self.assertNotIn("food_net_weight", q_ids)
+        self.assertNotIn("footwear_sizes", q_ids)
+
+        # 2. Ambiguous Brass Bowls: asks verify_primary_material (pre-selecting model guess) & pack type
+        bowl_dict = _sample_valid_payload("ambig_bowls")
+        bowl_dict["product_identity"]["apparent_product"] = "Engraved Brass Bowls"
+        bowl_dict["product_identity"]["composition_type"] = "matched_set"
+        bowl_dict["ondc_taxonomy"] = {
+            "domain_code": "ONDC:RET16",
+            "category": "Metalware",
+            "subcategory": "Engraved Brass Bowls",
+            "generic_name": "Brass Bowl",
+            "confidence": 0.91,
+        }
+        bowl_dict["materials"] = [
+            {"material_name": "Brass", "material_family": "Metal", "location": "main_body", "confidence": 0.65}
+        ]
+        bowl_dict["audit_telemetry"]["needs_seller_review"] = ["materials[0].material_name"]
+        bowl_pred = ProductIntelligenceOutput.model_validate(bowl_dict)
+        bowl_mcqs = generate_product_mcqs(bowl_pred)
+        bowl_qids = [q.question_id for q in bowl_mcqs]
+        self.assertIn("verify_primary_material", bowl_qids)
+        self.assertIn("verify_pack_type", bowl_qids)
+        self.assertIn("vessel_capacity", bowl_qids)
+        self.assertNotIn("saree_length_blouse", bowl_qids)
+
+        mat_q = next(q for q in bowl_mcqs if q.question_id == "verify_primary_material")
+        default_opt = next(o for o in mat_q.options if o.option_id == mat_q.default_option_id)
+        self.assertEqual(default_opt.label, "Brass")
+        self.assertTrue(default_opt.is_model_prediction)
+
+        # Applying seller answers clears needs_seller_review and stores catalog_specs
+        confirmed, specs = apply_mcq_answers(
+            bowl_pred,
+            {
+                "verify_primary_material": "Brass-Plated Alloy",
+                "vessel_capacity": "Medium (500 ml - 1.2 L / 6-8 in)",
+            },
+        )
+        self.assertEqual(confirmed.materials[0].material_name, "Brass-Plated Alloy")
+        self.assertEqual(confirmed.materials[0].confidence, 1.0)
+        self.assertEqual(confirmed.audit_telemetry.needs_seller_review, [])
+        self.assertEqual(specs["vessel_capacity"], "Medium (500 ml - 1.2 L / 6-8 in)")
 
 
 def l2_normalize_vec(v: np.ndarray) -> np.ndarray:

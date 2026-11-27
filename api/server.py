@@ -41,6 +41,8 @@ from api.schemas import (
     System2AnalyzeResponse,
     System2JobState,
     System2StatusResponse,
+    System2VerifyQuestionsRequest,
+    System2VerifyQuestionsResponse,
     TapRefineRequest,
     UploadResponse,
     VisualDuplicateSearchRequest,
@@ -50,6 +52,7 @@ from config import CONFIG
 from core.device import DEVICE_MGR
 from pipeline.orchestrator import PipelineExecutionResult, System1Pipeline
 from system2.engine import System2Engine
+from system2.question_generator import apply_mcq_answers, generate_product_mcqs
 from system2.schemas import ProductIntelligenceOutput
 from system2.siglip_encoder import SigLIPEncoder
 from system2.taxonomy_grounder import TaxonomyGrounder
@@ -927,18 +930,16 @@ async def _execute_system2_pipeline(product_id: str, req: System2AnalyzeRequest)
                     translate_home_decor_for_gateway=req.translate_home_decor_for_gateway,
                     compute_priors=True,
                 )
-                grounded_pred = ground_res.output
-                export_domain = ground_res.export_domain_code
-                siglip_emb = ground_res.image_embedding
             except Exception as exc:
                 logger.warning("Taxonomy grounding prior step skipped for %s: %s", product_id, exc)
-                fallback_ground = grounder.ground(
+                ground_res = grounder.ground(
                     pred,
                     translate_home_decor_for_gateway=req.translate_home_decor_for_gateway,
                     compute_priors=False,
                 )
-                grounded_pred = fallback_ground.output
-                export_domain = fallback_ground.export_domain_code
+            grounded_pred = ground_res.output
+            export_domain = ground_res.export_domain_code
+            siglip_emb = ground_res.image_embedding
 
             dup_matches: List[DuplicateCandidateInfo] = []
             if req.run_duplicate_check:
@@ -966,9 +967,10 @@ async def _execute_system2_pipeline(product_id: str, req: System2AnalyzeRequest)
                     ]
                 except Exception as exc:
                     logger.warning("Duplicate visual search skipped for %s: %s", product_id, exc)
-            return grounded_pred, export_domain, dup_matches
+            mcqs = generate_product_mcqs(grounded_pred, grounding=ground_res)
+            return grounded_pred, export_domain, dup_matches, mcqs
 
-        grounded_pred, export_domain, dup_matches = await loop.run_in_executor(
+        grounded_pred, export_domain, dup_matches, mcqs = await loop.run_in_executor(
             executor, _gpu0_ground_and_index
         )
 
@@ -983,6 +985,8 @@ async def _execute_system2_pipeline(product_id: str, req: System2AnalyzeRequest)
                     "export_domain_code": export_domain,
                     "escalated": did_escalate,
                     "duplicate_matches": [m.model_dump() for m in dup_matches],
+                    "verification_questions": [q.model_dump(mode="json") for q in mcqs],
+                    "catalog_specs": {},
                     "result": grounded_pred.model_dump(mode="json"),
                 },
                 indent=2,
@@ -999,6 +1003,8 @@ async def _execute_system2_pipeline(product_id: str, req: System2AnalyzeRequest)
                 "export_domain_code": export_domain,
                 "needs_seller_review": list(grounded_pred.audit_telemetry.needs_seller_review),
                 "duplicate_matches": dup_matches,
+                "verification_questions": mcqs,
+                "catalog_specs": {},
                 "result": grounded_pred,
             }
         )
@@ -1125,7 +1131,51 @@ async def get_system2_status(product_id: str):
         export_domain_code=entry.get("export_domain_code"),
         needs_seller_review=list(entry.get("needs_seller_review") or []),
         duplicate_matches=list(entry.get("duplicate_matches") or []),
+        verification_questions=list(entry.get("verification_questions") or []),
+        catalog_specs=dict(entry.get("catalog_specs") or {}),
         result=entry.get("result"),
+    )
+
+
+@app.post(
+    "/api/v1/system2/verify/{product_id}",
+    response_model=System2VerifyQuestionsResponse,
+    status_code=status.HTTP_200_OK,
+    tags=["System 2 - Visual Catalog Intelligence"],
+)
+async def verify_system2_mcqs(product_id: str, req: System2VerifyQuestionsRequest):
+    """Apply seller MCQ confirmations & catalog answers onto System 2 intelligence."""
+    entry = SYSTEM2_JOBS_DB.get(product_id)
+    if not entry or entry.get("result") is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Completed System 2 output not found for product '{product_id}'.",
+        )
+
+    confirmed, new_specs = apply_mcq_answers(entry["result"], req.answers)
+    merged_specs = dict(entry.get("catalog_specs") or {})
+    merged_specs.update(new_specs)
+
+    entry["result"] = confirmed
+    entry["catalog_specs"] = merged_specs
+    entry["needs_seller_review"] = list(confirmed.audit_telemetry.needs_seller_review)
+
+    s2_meta_path = CONFIG.storage_root / "products" / product_id / "metadata" / "system2_intelligence.json"
+    if s2_meta_path.exists():
+        try:
+            saved = json.loads(s2_meta_path.read_text(encoding="utf-8"))
+            saved["result"] = confirmed.model_dump(mode="json")
+            saved["catalog_specs"] = merged_specs
+            s2_meta_path.write_text(json.dumps(saved, indent=2), encoding="utf-8")
+        except Exception as exc:
+            logger.warning("Could not update %s after MCQ verification: %s", s2_meta_path, exc)
+
+    return System2VerifyQuestionsResponse(
+        product_id=product_id,
+        status=entry["status"],
+        needs_seller_review=entry["needs_seller_review"],
+        catalog_specs=merged_specs,
+        result=confirmed,
     )
 
 

@@ -107,6 +107,7 @@ def print_banner(public_url: str, port: int):
     print(f" BPP Publish Route  : {public_url}/api/v1/bpp/publish")
     print(f" System 2 Analyze   : {public_url}/api/v1/system2/analyze")
     print(f" System 2 Status    : {public_url}/api/v1/system2/status/{{product_id}}")
+    print(f" System 2 Verify MCQ: {public_url}/api/v1/system2/verify/{{product_id}}")
     print("-" * 70)
     print(" 📱 AMAR'S FLUTTER APP (.env) CONFIGURATION:")
     print(" Copy & paste these exact lines into project-zerotype/.env :")
